@@ -1,29 +1,113 @@
 #ifndef SCHEDULE_H
 #define SCHEDULE_H
 
+#include <cstdlib>
+#include <string.h>
+
+#include "debug.hpp"
+#include "spliceit.hpp"
 #include "flight.hpp"
+#include "cityhash.hpp"
 
 class Schedule
 {
 public:
-  unsigned int destination_count;
+  unsigned int max_destination;
+  unsigned int destination_count = HASH_SIZE;
   unsigned int schedule_days;
   virtual Flights *flights_from_on(int dept, int day) {};
 };
 
-// class TxtSchedule : public Schedule
-// {
-  
-// public:
-//   TxtSchedule(const char* file);
-  
-// }
+
+class TxtSchedule : public Schedule
+{
+  std::vector< std::vector<Flights> > schedule;
+  void add_flight(int dept, int dest, int day, int cost){
+    DEBUG(printf("adding flight dept=%d dest=%d day=%d cost=%d\n", dept, dest, day, cost));
+    if(schedule_days < day){
+      std::vector<Flights> new_day;
+      Flights empty_flights;
+      new_day.assign(destination_count, empty_flights);
+      schedule.push_back(new_day);
+      ++schedule_days;
+    }
+    Flight new_flight(dept, dest, cost);
+    schedule[day][dept].push_back(new_flight);
+  }
+public:
+  TxtSchedule(){
+    // Init for day 0.
+    schedule_days = 0;
+    std::vector<Flights> new_day;
+    Flights empty_flights;
+    new_day.assign(destination_count, empty_flights);
+    schedule.push_back(new_day);
+  }
+  // Returns starting city.
+  int load_flights_from_file(const char *input_filename){
+    char *line = nullptr;
+    size_t len = 0;
+    ssize_t read;
+    int nfields;
+    char **fields;
+
+    // Open files.
+    FILE* infile = fopen(input_filename, "r");
+    if(infile == nullptr){
+      printf("failed to open input file\n");
+      exit(EXIT_FAILURE);
+    }
+
+    // First line is special (starting city, discard here).
+    if((read = getline(&line, &len, infile)) == -1){
+      printf("failed to read first line containing starting city\n");
+      exit(EXIT_FAILURE);
+    }
+    char *start_chopped;
+    DEBUG(printf("starting city=%s\n", line));
+    chop(line, &start_chopped);
+    DEBUG(printf("starting city=%s\n", start_chopped));
+    int starting_city = hashtag_in(start_chopped);
+    DEBUG(printf("starting city=%d\n", starting_city));
+    free(start_chopped);
+
+    while((read = getline(&line, &len, infile)) != -1){
+      nfields = str_split(line, INPUT_SEPARATOR, &fields);
+      // Include selected fields.
+      DEBUG(printf("read fields %s, %s, %s, %s\n", fields[0], fields[1], fields[2], fields[3]));
+      int dept = hashtag_in(fields[0]);
+      int dest = hashtag_in(fields[1]);
+      int day = stol(fields[2]);
+      char *chopped;
+      chop(fields[3], &chopped);
+      int cost = stol(chopped);
+      free(chopped);
+      add_flight(dept, dest, day, cost);
+
+      int i;
+      for(i = 0; i < nfields; i++)
+	free(fields[i]);
+      free(fields);
+    }
+
+    fclose(infile);
+    free(line);
+
+    return starting_city;
+  }
+  virtual Flights *flights_from_on(int dept, int day){
+    if(day > schedule_days || dept > max_destination){
+      Flights *empty = new Flights();
+      return empty;
+    }
+    return &schedule[day][dept];
+  }
+};
 
 
 class MockSchedule : public Schedule
 {
   std::vector< std::vector<Flights> > schedule;
-
 public:
   MockSchedule(){
     // Day0
@@ -91,7 +175,6 @@ public:
     destination_count = 6;
     schedule_days = 3;
   }
-
   virtual Flights *flights_from_on(int dept, int day){
     if(day >= schedule_days || dept == 6){
       Flights *empty = new Flights();
