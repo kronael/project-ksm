@@ -5,18 +5,20 @@
 #include <vector>
 
 #include "debug.hpp"
+#include "cityhash.hpp"
+
 
 class DestinationBitmap
 {
-  unsigned int size;
-  unsigned int visited_count;
+  unsigned int total_count;
   std::vector<bool> bitmap;
 public:
+  unsigned int visited_count;
   /*! Construct a bitmap of appropriate size.
    */
-  DestinationBitmap(unsigned int new_size, unsigned int first) :
-    size(new_size), visited_count(0){
-    bitmap.assign(new_size, false);
+  DestinationBitmap(unsigned int new_total_count, unsigned int first) :
+    total_count(new_total_count), visited_count(0){
+    bitmap.assign(HASH_SIZE, false);
     // bitmap[first] = true;
   }
   void visit(unsigned int city){
@@ -33,10 +35,10 @@ public:
     return bitmap[city];
   }
   bool visited_all(){
-    return visited_count == size;
+    return visited_count == total_count;
   }
   bool almost_all_visited(){
-    return visited_count == size - 1;
+    return visited_count == total_count - 1;
   }
 };
 

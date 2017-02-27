@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "debug.hpp"
+#include "destination_bitmap.hpp"
 #include "spliceit.hpp"
 #include "flight.hpp"
 #include "cityhash.hpp"
@@ -12,9 +13,11 @@
 class Schedule
 {
 public:
-  unsigned int max_destination;
-  unsigned int destination_count = HASH_SIZE;
+  unsigned int max_destination = HASH_SIZE;
+  unsigned int destination_count;
+  DestinationBitmap destination_counter;
   unsigned int schedule_days;
+  Schedule() : destination_counter(HASH_SIZE, 0) {}
   virtual Flights *flights_from_on(int dept, int day) {};
 };
 
@@ -27,10 +30,13 @@ class TxtSchedule : public Schedule
     if(schedule_days < day){
       std::vector<Flights> new_day;
       Flights empty_flights;
-      new_day.assign(destination_count, empty_flights);
+      new_day.assign(max_destination, empty_flights);
       schedule.push_back(new_day);
       ++schedule_days;
     }
+    // Count destinations.
+    if(!destination_counter.visited(dest))
+      destination_counter.visit(dest);
     Flight new_flight(dept, dest, cost);
     schedule[day][dept].push_back(new_flight);
   }
@@ -92,6 +98,10 @@ public:
 
     fclose(infile);
     free(line);
+
+    // Record destination count.
+    destination_count = destination_counter.visited_count;
+    DEBUG(printf("loaded data with destination_count=%d\n", destination_count));
 
     return starting_city;
   }
