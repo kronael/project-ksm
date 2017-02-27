@@ -1,0 +1,11 @@
+#!/bin/bash
+
+# Usage: text-txt-input test-txt input_file
+#
+# Runs the program and saves debugging output and generated routes.
+
+input=${2:?provide input data file}
+program=${1:?provide program to run}
+
+./prepare-data "$input" > input.txt
+./"$program" | tee run.log | sed -n /BEGIN/,/END/p | tee routes.log

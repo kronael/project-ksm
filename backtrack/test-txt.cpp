@@ -9,7 +9,7 @@
 int main()
 {
   TxtSchedule ms;
-  int starting_city = ms.load_flights_from_file("data_15.prep");
+  int starting_city = ms.load_flights_from_file("input.txt");
 
   Flights *available_flights_ptr = ms.flights_from_on(starting_city, 0);
   Flights available_flights = *available_flights_ptr;
@@ -33,6 +33,5 @@ int main()
     printf("OUT BEGIN\n");
     t->next_element->print();
     printf("OUT END\n");
-   
   }while(t);
 }

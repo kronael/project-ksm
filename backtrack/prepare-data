@@ -1,6 +1,6 @@
 #!/bin/bash
 
-### Usage: prepdata input_file output_file
+### Usage: prepdata input_file > output_file
 ###
 ### Sorts the input file first by departure day, then by departure
 ### airport, then by cost.  The first line is kept as it was (the
@@ -9,9 +9,8 @@
 ### Uses 200M memory buffer.
 
 input=${1:?provide input file}
-output=${2:?provide output file}
 
 {
     head -n 1 "$input"
     tail -n +2 "$input" | sort -k 3,3n -k 1,1 -k 4,4n -S 200M
-} > "$output"
+}
