@@ -9,11 +9,31 @@
 
 bool DEBUGGING_ENABLED = false;
 
+#include <iostream>
+#include <chrono>
+
+class Timer
+{
+  typedef std::chrono::high_resolution_clock clock_;
+  std::chrono::time_point<clock_> beg_;
+
+public:
+  Timer() : beg_(clock_::now()) {}
+  void reset(){
+    beg_ = clock_::now();
+  }
+  long elapsed() const{ 
+    return std::chrono::duration_cast<std::chrono::microseconds>(clock_::now() - beg_).count();
+  }
+};
+
+
 int main(int argc, char **argv)
 {
   char *debugging = getenv("DEBUG");
   if(debugging && strcmp(debugging, "1")) DEBUGGING_ENABLED = true;
 
+  Timer timer;
   TxtSchedule ms;
   int starting_city = ms.load_flights_from_file(argv[1]);
 
@@ -28,16 +48,17 @@ int main(int argc, char **argv)
   TrackStep initial_trackstep(starting_city, starting_city, 0, flights_iter);
   Track trek(initial_trackstep, nullptr);
   BacktrackingWayGenerator btg(ms, trek, trek);
+  
+  std::cout << "took=" << timer.elapsed() / 1e6 << "s to load data" << std::endl;
 
   Track *t;
   do{
+    timer.reset();
     t = btg.grow_trek();
     if(!t){
       printf("all done\n");
       exit(EXIT_SUCCESS);
     }
-    printf("OUT BEGIN\n");
-    t->next_element->print();
-    printf("OUT END\n");
+    std::cout << "took=" << timer.elapsed() << "us to generate one track\r";
   }while(t);
 }

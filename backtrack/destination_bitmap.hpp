@@ -3,6 +3,7 @@
 
 #include <stdio.h>
 #include <vector>
+#include <assert.h>
 
 #include "debug.hpp"
 #include "cityhash.hpp"
@@ -22,12 +23,15 @@ public:
     // bitmap[first] = true;
   }
   void visit(unsigned int city){
-    DEBUG(printf("visiting city=%d\n", city));
+    DEBUG(printf("visiting city=%d visited=%d\n", city, visited_count));
+    DEBUG(assert(!bitmap[city]));
     ++visited_count;
     bitmap[city] = true;
   }
   void unvisit(unsigned int city){
-    DEBUG(printf("un-visiting city=%d\n", city));
+    DEBUG(printf("un-visiting city=%d visited=%d\n", city, visited_count));
+    DEBUG(assert(bitmap[city]));
+    DEBUG(assert(visited_count > 0));
     --visited_count;
     bitmap[city] = false;
   }
@@ -35,6 +39,7 @@ public:
     return bitmap[city];
   }
   bool visited_all(){
+    DEBUG(printf("visited_count=%d total_count=%d\n", visited_count, total_count));
     return visited_count == total_count;
   }
   bool almost_all_visited(){

@@ -27,7 +27,6 @@ int stol(std::string str)
   char **end_ptr = &end_pos;
   int ans = strtol(str.c_str(), end_ptr, 10);
   DEBUG(printf("read integer=%d\n", ans));
-  //DEBUG(printf("read integer=%x\n", end_ptr));
   if(*end_pos != '\0')
     throw NumberFormatError("number format error: invalid integer conversion");
   return ans;

@@ -137,9 +137,11 @@ Track *BacktrackingWayGenerator::grow_trek()
   // Do the iteration again.
   if(frontier->descr.dest != track_start->descr.dest){
     DEBUG(printf("infeasible route, does not form a cycle with dept=%d dest=%d\n", track_start->descr.dest, frontier->descr.dest));
+    DEBUG(track_start->print());
     return grow_trek();
-  }else if(visited.visited_all()){
+  }else if(!visited.visited_all()){
     DEBUG(printf("infeasuble route, does not go through all cities\n"));
+    DEBUG(track_start->print());
     return grow_trek();
   }else{
     return track_start;

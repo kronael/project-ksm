@@ -46,7 +46,7 @@ public:
     schedule_days = 0;
     std::vector<Flights> new_day;
     Flights empty_flights;
-    new_day.assign(destination_count, empty_flights);
+    new_day.assign(max_destination, empty_flights);
     schedule.push_back(new_day);
   }
   // Returns starting city.
