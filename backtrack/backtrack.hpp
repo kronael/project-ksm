@@ -10,6 +10,7 @@ class BacktrackingWayGenerator
   Schedule *schedule;
   Track *track_start;
   Track *frontier;
+  int min_cost_so_far;
   DestinationBitmap visited;
   // Current day points to the day of last departure in the track pointed to by frontier.
   int current_day;
@@ -24,6 +25,9 @@ public:
     current_day(0), schedule(&new_schedule), track_start(&new_track_start), frontier(&new_frontier),
     visited(new_schedule.destination_count, new_track_start.descr.dest) {};
   Track *grow_trek();
+  Track *get_frontier(){
+    return frontier;
+  }
 };
 
 #endif

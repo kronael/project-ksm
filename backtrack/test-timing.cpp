@@ -6,6 +6,7 @@
 #include "debug.hpp"
 #include "schedule.hpp"
 #include "trackstep.hpp"
+#include "trekoptimum.hpp"
 
 bool DEBUGGING_ENABLED = false;
 
@@ -28,8 +29,20 @@ public:
 };
 
 
+double mean(const int* x, int size)
+{
+  int sum = 0;
+  for(int i = 0; i < size; ++i)
+    sum += x[i];
+  return sum / size;
+}
+
+
 int main(int argc, char **argv)
 {
+  if(argc < 1)
+    exit(1);
+  
   char *debugging = getenv("DEBUG");
   if(debugging && strcmp(debugging, "1")) DEBUGGING_ENABLED = true;
 
@@ -51,7 +64,12 @@ int main(int argc, char **argv)
   
   std::cout << "took=" << timer.elapsed() / 1e6 << "s to load data" << std::endl;
 
+  #define EACH_N 10000
+  Timer optimum_timer;
   Track *t;
+  TrekOptimum optimum;
+  int i;
+  int times[EACH_N];
   do{
     timer.reset();
     t = btg.grow_trek();
@@ -59,6 +77,19 @@ int main(int argc, char **argv)
       printf("all done\n");
       exit(EXIT_SUCCESS);
     }
-    std::cout << "took=" << timer.elapsed() << "us to generate one track\r";
-  }while(t);
+    if(optimum.update(*t->next_element, *btg.get_frontier())){
+      std::cout << "took=" << optimum_timer.elapsed() / 1000 << "ms to find new optimum\n";
+      optimum_timer.reset();
+      printf("OUT BEGIN\n");
+      t->next_element->print();
+      printf("OUT END\n");
+    }
+    if(i == 0)
+      std::cout << "took=" << timer.elapsed() << "us to generate the first track\n";
+    if(i >= EACH_N){
+      std::cout << "took=" << mean(times, EACH_N) << "us average to generate one track\n";
+      i = 0;
+    }
+    times[i++] = timer.elapsed();
+  } while(t);
 }
