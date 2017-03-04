@@ -67,11 +67,14 @@ int main(int argc, char **argv)
   std::cout << "took=" << timer.elapsed() / 1e6 << "s to load data" << std::endl;
 
   #define EACH_N 10000
+  #define EACH_SHUF 100
   Timer optimum_timer;
   Track *t;
   TrekOptimum optimum;
-  int i;
+  int i, j;
   int times[EACH_N];
+  std::negative_binomial_distribution<int> days_distribution(1, 0.5);
+  std::poisson_distribution<int> flights_distribution(0.001);
   do{
     timer.reset();
     t = btg.grow_trek();
@@ -86,6 +89,21 @@ int main(int argc, char **argv)
       t->next_element->print();
       printf("OUT END\n");
     }
+    if(j >= EACH_SHUF){
+      int rollback_days = days_distribution(GENERATOR);
+      if(rollback_days > 0){
+	int shuffle_flights = flights_distribution(GENERATOR);
+	btg.rollback_days(rollback_days);
+	//printf("rolling back n=%d days\n", rollback_days);
+	if(shuffle_flights > 0){
+	  ms.shuffle_flights(shuffle_flights, rollback_days);
+	  printf("shuffling up k=%d flights\n", shuffle_flights);
+	}
+      }
+      j = 0;
+    }
+    ++j;
+    
     if(i == 0)
       std::cout << "took=" << timer.elapsed() << "us to generate the first track\n";
     if(i >= EACH_N){

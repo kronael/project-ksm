@@ -14,6 +14,8 @@ struct Flight
 };
 
 
+bool has_lower_cost(Flight x, Flight y);
+
 #define Flights std::vector<Flight>
 #define FlightsIterator Flights::iterator
 

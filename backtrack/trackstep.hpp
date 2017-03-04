@@ -49,10 +49,9 @@ struct Track
       next_element->print();
   }
   Track *duplicate(){
-    DEBUG(printf("ahoj\n"));
     return duplicate(new Track(descr));
   }
-  Track *duplicate(Track *duped_frontier){
+  Track *duplicate(Track *duped_frontier){ 
     DEBUG(duped_frontier->print());
     if(next_element)
       return next_element->duplicate(duped_frontier->enlarge(descr));

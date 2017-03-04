@@ -20,7 +20,6 @@ public:
   DestinationBitmap(unsigned int new_total_count, unsigned int first) :
     total_count(new_total_count), visited_count(0){
     bitmap.assign(HASH_SIZE, false);
-    // bitmap[first] = true;
   }
   void visit(unsigned int city){
     DEBUG(printf("visiting city=%d visited=%d\n", city, visited_count));

@@ -1,14 +1,20 @@
 #ifndef SCHEDULE_H
 #define SCHEDULE_H
 
+#include <algorithm>
 #include <cstdlib>
 #include <string.h>
+#include <random>
+#include <utility>
 
 #include "debug.hpp"
 #include "destination_bitmap.hpp"
 #include "spliceit.hpp"
 #include "flight.hpp"
 #include "cityhash.hpp"
+
+extern std::default_random_engine GENERATOR;
+
 
 class Schedule
 {
@@ -18,7 +24,7 @@ public:
   DestinationBitmap destination_counter;
   unsigned int schedule_days;
   Schedule() : destination_counter(HASH_SIZE, 0) {}
-  virtual Flights *flights_from_on(int dept, int day) {};
+  virtual Flights& flights_from_on(int dept, int day) {};
 };
 
 
@@ -49,6 +55,63 @@ public:
     new_day.assign(max_destination, empty_flights);
     schedule.push_back(new_day);
   }
+
+  // Sorts the flights by cost for each day and departure airport.
+  void sort_flights(){
+    for(auto day = schedule.begin(); day != schedule.end(); ++day)
+      for(auto dept = day->begin(); dept != day->end(); ++dept)
+	std::sort(dept->begin(), dept->end(), has_lower_cost);
+  }
+
+
+  // Randomly choose 'number_of_schuffles' flights from every
+  // available city on each day and place them to the start of the
+  // list exchanging them for those which were at their original
+  // positions.
+  void _shuffle_single_flight(Flights& single_dept_schedule){
+    // std::vector<double> d{0, (double)single_dept_schedule.size() / 10, (double)single_dept_schedule.size()};
+    // std::vector<double> w{1, 0.1, 0};
+    // std::piecewise_linear_distribution<double> distribution(d.begin(), d.end(), w.begin());
+
+    if(single_dept_schedule.size() == 0){
+      return;
+    }else{
+      std::bernoulli_distribution toss_coin(0.05);
+      int toss = toss_coin(GENERATOR);
+      if(toss) return;
+      std::vector<double> cuts;
+      std::vector<double> costs;
+      costs.resize(single_dept_schedule.size());
+      cuts.resize(single_dept_schedule.size());
+      for(auto i = 0; i < single_dept_schedule.size(); ++i){
+	costs[i] = exp(- (single_dept_schedule[i].cost / 10)^2);
+	cuts[i] = i;
+      }
+      std::piecewise_linear_distribution<double> distribution(cuts.begin(), cuts.end(), costs.begin());
+      //std::exponential_distribution<double> distribution(10);
+      int random_index = std::lround(distribution(GENERATOR));
+      if(random_index == 0){
+	return;
+      }else{
+	if(random_index > single_dept_schedule.size())
+	  random_index = single_dept_schedule.size();
+	printf("picking i=%d\n", random_index);
+	std::swap(single_dept_schedule[random_index], single_dept_schedule[0]);
+      }
+    }
+  }
+
+  void shuffle_flights(int number_of_schuffles, int from_day){
+    std::bernoulli_distribution toss_coin(0.5);
+    for(auto day = from_day; day < schedule.size(); ++day){
+      int toss = toss_coin(GENERATOR);
+      if(toss) continue;
+      printf("shuffling at day=%d\n", day);
+      for(auto dept = schedule[day].begin(); dept != schedule[day].end(); ++dept)
+	_shuffle_single_flight(*dept);
+    }
+  }
+
   // Returns starting city.
   int load_flights_from_file(const char *input_filename){
     char *line = nullptr;
@@ -105,12 +168,12 @@ public:
 
     return starting_city;
   }
-  virtual Flights *flights_from_on(int dept, int day){
+  virtual Flights& flights_from_on(int dept, int day){
     if(day > schedule_days || dept > max_destination){
       Flights *empty = new Flights();
-      return empty;
+      return *empty;
     }
-    return &schedule[day][dept];
+    return schedule[day][dept];
   }
 };
 
@@ -185,12 +248,12 @@ public:
     destination_count = 6;
     schedule_days = 3;
   }
-  virtual Flights *flights_from_on(int dept, int day){
+  virtual Flights& flights_from_on(int dept, int day){
     if(day >= schedule_days || dept == 6){
       Flights *empty = new Flights();
-      return empty;
+      return *empty;
     }
-    return &schedule[day][dept];
+    return schedule[day][dept];
   }
 };
 

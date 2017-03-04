@@ -8,6 +8,7 @@
 #include "schedule.hpp"
 #include "debug.hpp"
 
+
 /*! Adds the next available route from the flights iterator.
 */ 
 void BacktrackingWayGenerator::add_track_step(int dest, int cost, FlightsGenerator flights)
@@ -57,22 +58,20 @@ bool BacktrackingWayGenerator::grow_step_from_iter(FlightsGenerator flights)
 bool BacktrackingWayGenerator::grow_step()
 {
   DEBUG(printf("growing day=%d\n", current_day));
-  Flights *available_flights = schedule->flights_from_on(frontier->descr.dest, current_day);
+  // Needs to be a pointer, because it is otherwise copy-constructed and thus copied and
+  // the iterators then point to the copy and not to the schedule itself.
+  Flights *available_flights = &schedule->flights_from_on(frontier->descr.dest, current_day);
   DEBUG(
 	if(available_flights->size() > 0)
 	  for(Flights::iterator i = available_flights->begin(); i != available_flights->end(); ++i)
 	    printf("Schedule(day=%d, dept=%d): %d -> %d $%d\n", current_day, frontier->descr.dest, i->dept, i->dest, i->cost);
-	)
+  )
   if(available_flights->size() < 1){
-    // GrowthError error("can't grow any further");
-    // throw error;
     DEBUG(printf("no more flights from city=%d on day=%d\n", frontier->descr.dest, current_day));
     return false;
   }
   FlightsGenerator flights_iter(*available_flights);
   if(!grow_step_from_iter(flights_iter)){
-    // GrowthError error("can't grow any further");
-    // throw error;
     return false;
   }
   ++current_day;
@@ -145,5 +144,16 @@ Track *BacktrackingWayGenerator::grow_trek()
     return grow_trek();
   }else{
     return track_start;
+  }
+}
+
+
+void BacktrackingWayGenerator::rollback_days(int n)
+{
+  if(n > current_day)
+    n = current_day;
+  for(int i = 0; i < n; ++i){
+    del_track_step();
+    --current_day;
   }
 }
