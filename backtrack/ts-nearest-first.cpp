@@ -52,15 +52,6 @@ int main(int argc, char **argv)
   int starting_city = ms.load_flights_from_file(argv[1]);
   ms.sort_flights();
 
-  //Flights available_flights = ms.flights_from_on(starting_city, 0);
-  // DEBUG(
-  // 	if(available_flights.size() > 0)
-  // 	  for(Flights::iterator i = available_flights.begin(); i != available_flights.end(); ++i)
-  // 	    printf("Schedule(day=%d, dept=%d): %d -> %d $%d\n", 0, starting_city, i->dept, i->dest, i->cost);
-  // 	)
-  // FlightsGenerator flights_iter(available_flights);
-  // TrackStep initial_trackstep(starting_city, starting_city, 0, flights_iter);
-  // Track trek(initial_trackstep, nullptr);
   BacktrackingWayGenerator btg(ms, starting_city);
   btg.frontier->print();
   
