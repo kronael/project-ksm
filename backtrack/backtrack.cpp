@@ -157,3 +157,49 @@ void BacktrackingWayGenerator::rollback_days(int n)
     --current_day;
   }
 }
+
+
+// Steps back n days just to make a new proposal.  You can return to
+// where you were by calling the regrow_pregrown method with the pointer
+// to the start of the track you shrunk the path by.
+Track *BacktrackingWayGenerator::stepback_days(int n)
+{
+  if(n < 1) return nullptr;
+  if(n > current_day)
+    n = current_day;
+  for(int i = 0; i < n - 1; ++i){
+    step_back_track_step();
+    --current_day;
+  }
+  Track *stepped_back_track_start = step_back_track_step();
+  --current_day;
+  stepped_back_track_start->prev_element = nullptr;
+  return stepped_back_track_start;
+}
+
+
+Track *BacktrackingWayGenerator::step_back_track_step()
+{
+  visited.unvisit(frontier->descr.dest);
+  Track *old_frontier = frontier;
+  frontier = frontier->prev_element;
+  return old_frontier;
+}
+
+
+void BacktrackingWayGenerator::regrow_pregrown(Track *start, int days)
+{
+  if(days < 1) return;
+  if(days > current_day)
+    days = current_day;
+  Track *old = stepback_days(days);
+  current_day = current_day + days;
+  old->forward_dispose();
+  frontier->next_element = start;
+  start->prev_element = frontier;
+  Track *i;
+  for(i = start; i; i = i->next_element)
+    visited.visit(i->descr.dest);
+  for(i = start; i->next_element; i = i->next_element);
+  frontier = i;
+}

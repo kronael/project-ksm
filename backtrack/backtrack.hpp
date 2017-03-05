@@ -42,6 +42,9 @@ public:
   Track *get_frontier(){
     return frontier;
   }
+  Track *stepback_days(int n);
+  Track *step_back_track_step();
+  void regrow_pregrown(Track *trek_start, int days);
 };
 
 #endif

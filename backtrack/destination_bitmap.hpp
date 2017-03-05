@@ -12,14 +12,16 @@
 class DestinationBitmap
 {
   unsigned int total_count;
-  std::vector<bool> bitmap;
+  bool bitmap[HASH_SIZE];
 public:
   unsigned int visited_count;
   /*! Construct a bitmap of appropriate size.
    */
   DestinationBitmap(unsigned int new_total_count, unsigned int first) :
     total_count(new_total_count), visited_count(0){
-    bitmap.assign(HASH_SIZE, false);
+    //bitmap.assign(HASH_SIZE, false);
+    for(int i = 0; i < HASH_SIZE; ++i)
+      bitmap[i] = false;
   }
   void visit(unsigned int city){
     DEBUG(printf("visiting city=%d visited=%d\n", city, visited_count));
@@ -39,10 +41,11 @@ public:
   }
   bool visited_all(){
     DEBUG(printf("visited_count=%d total_count=%d\n", visited_count, total_count));
-    return visited_count == total_count;
+    return visited_count >= total_count;
   }
   bool almost_all_visited(){
-    return visited_count == total_count - 1;
+    DEBUG(printf("visited_count=%d total_count=%d\n", visited_count, total_count));
+    return visited_count >= total_count - 1;
   }
 };
 

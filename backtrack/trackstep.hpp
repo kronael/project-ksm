@@ -13,6 +13,8 @@ struct TrackStep
   FlightsGenerator flights_iter;
   TrackStep(int new_dept, int new_dest, int new_cost, FlightsGenerator& new_flights_iter) :
     dept(new_dept), dest(new_dest), cost(new_cost), flights_iter(new_flights_iter) {}
+  // TrackStep(int new_dept, int new_dest, int new_cost, FlightsGenerator& new_flights_iter, FlightsGenerator& new_proposal_flights_iter) :
+  //   dept(new_dept), dest(new_dest), cost(new_cost), flights_iter(new_flights_iter), proposal_flights_iter(new_flights_iter) {}
 };
 
 
@@ -61,6 +63,13 @@ struct Track
     Track *new_track = shrink();
     if(new_track)
       new_track->dispose();
+  }
+  void forward_dispose(){
+    if(next_element){
+      next_element->forward_dispose();
+    }else{
+      dispose();
+    }
   }
 };
 
