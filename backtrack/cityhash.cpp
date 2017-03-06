@@ -18,7 +18,7 @@ std::string hashtag_out(int code)
     str[0] = ALPHABET_START + (code / 676);
     str[1] = ALPHABET_START + ((code % 676) / 26);
     str[2] = ALPHABET_START + (code % 26);
-    return  str;
+    return str.c_str();
 }
 
 int stol(std::string str)

@@ -38,7 +38,7 @@ bool BacktrackingWayGenerator::grow_step_from_iter(FlightsGenerator flights)
     flights.next();
     if(!visited.visited(flight_dest)){
       if(flight_dest == track_start->descr.dest && !visited.almost_all_visited()){
-	DEBUG(printf("would close the loop prematurely dest=%d\n", flight_dest));
+	DEBUG(printf("would close the cycle prematurely dest=%d\n", flight_dest));
 	return grow_step_from_iter(flights);
       }else{
 	add_track_step(flight_dest, flight_cost, flights);

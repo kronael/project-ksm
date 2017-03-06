@@ -3,9 +3,9 @@
 
 #include <stdio.h>
 
+#include "cityhash.hpp"
 #include "debug.hpp"
 #include "flight.hpp"
-
 
 struct TrackStep
 {
@@ -73,6 +73,7 @@ struct Track
   // Prints the track in forward order until the end.  I.E. prints the
   // current track step and all successive steps in the track.
   void print(){
+    //printf("%d -> %d $%d ($%d)\n", hashtag_out(descr.dept).c_str(), hashtag_out(descr.dest).c_str(), descr.cost, total_cost);
     printf("%d -> %d $%d ($%d)\n", descr.dept, descr.dest, descr.cost, total_cost);
     if(next_element)
       next_element->print();

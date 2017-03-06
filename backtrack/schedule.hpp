@@ -16,21 +16,20 @@
 extern std::default_random_engine GENERATOR;
 
 
-class Schedule
+struct Schedule
 {
-public:
   unsigned int max_destination = HASH_SIZE;
   unsigned int destination_count;
-  DestinationBitmap destination_counter;
   unsigned int schedule_days;
-  Schedule() : destination_counter(HASH_SIZE, 0) {}
-  virtual Flights& flights_from_on(int dept, int day) {};
+  virtual Flights& flights_from_on(int dept, int day) = 0;
 };
 
 
 class TxtSchedule : public Schedule
 {
+  DestinationBitmap destination_counter;
   std::vector< std::vector<Flights> > schedule;
+  std::vector< std::vector<Flights> > backwards_schedule;
   void add_flight(int dept, int dest, int day, int cost){
     DEBUG(printf("adding flight dept=%d dest=%d day=%d cost=%d\n", dept, dest, day, cost));
     if(schedule_days < day){
@@ -38,6 +37,7 @@ class TxtSchedule : public Schedule
       Flights empty_flights;
       new_day.assign(max_destination, empty_flights);
       schedule.push_back(new_day);
+      backwards_schedule.push_back(new_day);
       ++schedule_days;
     }
     // Count destinations.
@@ -45,22 +45,31 @@ class TxtSchedule : public Schedule
       destination_counter.visit(dest);
     Flight new_flight(dept, dest, cost);
     schedule[day][dept].push_back(new_flight);
+    Flight new_reversed_flight(dest, dept, cost);
+    backwards_schedule[day][dest].push_back(new_reversed_flight);
   }
 public:
-  TxtSchedule(){
+  TxtSchedule() : destination_counter(HASH_SIZE, 0){
     // Init for day 0.
     schedule_days = 0;
     std::vector<Flights> new_day;
     Flights empty_flights;
     new_day.assign(max_destination, empty_flights);
     schedule.push_back(new_day);
+    backwards_schedule.push_back(new_day);
   }
 
   // Sorts the flights by cost for each day and departure airport.
-  void sort_flights(){
-    for(auto day = schedule.begin(); day != schedule.end(); ++day)
+  void sort_flights(std::vector< std::vector<Flights> > *x = nullptr){
+    if(!x) x = &schedule;
+    for(auto day = x->begin(); day != x->end(); ++day)
       for(auto dept = day->begin(); dept != day->end(); ++dept)
 	std::sort(dept->begin(), dept->end(), has_lower_cost);
+  }
+
+  // Sorts the backwards schedule by cost for each day and arrival airport.
+  void sort_backwards_flights(){
+    sort_flights(&backwards_schedule);
   }
 
 
@@ -166,6 +175,9 @@ public:
     destination_count = destination_counter.visited_count;
     DEBUG(printf("loaded data with destination_count=%d\n", destination_count));
 
+    // Reverse the backwards schedule for the days to match.
+    std::reverse(backwards_schedule.begin(), backwards_schedule.end());
+
     return starting_city;
   }
   virtual Flights& flights_from_on(int dept, int day){
@@ -174,6 +186,22 @@ public:
       return *empty;
     }
     return schedule[day][dept];
+  }
+  Flights& flights_to_on(int dest, int day){
+    if(day > schedule_days || dest > max_destination){
+      Flights *empty = new Flights();
+      return *empty;
+    }
+    return backwards_schedule[day][dest];
+  }
+};
+
+
+// Emulate a forward shedule, while being a backwards schedule.
+class BackwardsSchedule : public TxtSchedule
+{
+  virtual Flights& flights_from_on(int dept, int day){
+    return flights_to_on(dept, day);
   }
 };
 
