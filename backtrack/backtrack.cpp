@@ -88,7 +88,8 @@ FlightsGenerator BacktrackingWayGenerator::del_track_step()
 }
 
 
-bool BacktrackingWayGenerator::regrow_step()
+// If cutoff is struck, reconnect the old track.
+bool BacktrackingWayGenerator::regrow_step(Track *chopped)
 {
   // If we're back at the start, it means there are no possible routes
   // from the first airport.
@@ -98,55 +99,67 @@ bool BacktrackingWayGenerator::regrow_step()
   FlightsGenerator frontier_flights_iter = del_track_step();
   if(!grow_step_from_iter(frontier_flights_iter)){
     // There are no flights available from the current destination on this day.
-    --current_day;
-    return regrow_step();
+    // We are not allowed to cross the cutoff.
+    // if(current_day <= cutoff_day){
+    //   printf("cutoff\n");
+    //   // Better yet, should just reconnect one track step.
+    //   // chopped->print();
+    //   // if(chopped)
+    //   // 	frontier = frontier->connect(chopped);
+    //   //return true;
+    // }else{
+      --current_day;
+      //}
+    return regrow_step(chopped);
   }
   return true;
 }
 
 
-Track *BacktrackingWayGenerator::grow_trek()
+Track *BacktrackingWayGenerator::grow_trek(Track *chopped)
 {
-  // On the start of processing, first day, move forward.
-  if(current_day == 0){
-    grow_step();
-    // Grow the route until we can.
+  while(1){
+    // On the start of processing, first day, move forward.
+    if(current_day == 0){
+      grow_step();
+      // Grow the route until we can.
+      while(frontier->descr.dest != track_start->descr.dest && grow_step()) {}
+      DEBUG(printf("grown until we can: whole track so far\n"));
+      DEBUG(track_start->print());
+      if(frontier->descr.dest == track_start->descr.dest && visited.visited_all()){
+	DEBUG(printf("we have a possible route\n"));
+	return track_start;
+      }
+      DEBUG(printf("infeasible route obtained\n"));
+    }
+
+    // On further processing runs, we start with a complete route, or
+    // the route is not complete, we must regrow either way.
+    // If we can't, we're done.
+    DEBUG(printf("regrowing step\n"));
+    if(!regrow_step(chopped)){
+      DEBUG(printf("we're done\n"));
+      return nullptr;
+    }
+    // Regrowing might have shrunk the track, or if the track is not complete.
+    DEBUG(printf("growing until we can after regrowth\n"));
     while(frontier->descr.dest != track_start->descr.dest && grow_step()) {}
-    DEBUG(printf("grown until we can: whole track so far\n"));
-    DEBUG(track_start->print());
-    if(frontier->descr.dest == track_start->descr.dest && visited.visited_all()){
-      DEBUG(printf("we have a possible route\n"));
+    // Once the track is complete, return it if it is a valid track, otherwise
+    // Do the iteration again.
+    if(frontier->descr.dest != track_start->descr.dest){
+      DEBUG(printf("infeasible route, does not form a cycle with dept=%d dest=%d\n", track_start->descr.dest, frontier->descr.dest));
+      DEBUG(track_start->print());
+      continue;
+    }else if(!visited.visited_all()){
+      DEBUG(printf("infeasuble route, does not go through all cities\n"));
+      DEBUG(track_start->print());
+      continue;
+    }else{
       return track_start;
     }
-    DEBUG(printf("infeasible route obtained\n"));
   }
-
-  // On further processing runs, we start with a complete route, or
-  // the route is not complete, we must regrow either way.
-  // If we can't, we're done.
-  DEBUG(printf("regrowing step\n"));
-  if(!regrow_step()){
-    DEBUG(printf("we're done\n"));
-    return nullptr;
-  }
-  // Regrowing might have shrunk the track, or if the track is not complete.
-  DEBUG(printf("growing until we can after regrowth\n"));
-  while(frontier->descr.dest != track_start->descr.dest && grow_step()) {}
-  // Once the track is complete, return it if it is a valid track, otherwise
-  // Do the iteration again.
-  if(frontier->descr.dest != track_start->descr.dest){
-    DEBUG(printf("infeasible route, does not form a cycle with dept=%d dest=%d\n", track_start->descr.dest, frontier->descr.dest));
-    DEBUG(track_start->print());
-    return grow_trek();
-  }else if(!visited.visited_all()){
-    DEBUG(printf("infeasuble route, does not go through all cities\n"));
-    DEBUG(track_start->print());
-    return grow_trek();
-  }else{
-    return track_start;
-  }
+  throw "should not get here";
 }
-
 
 void BacktrackingWayGenerator::rollback_days(int n)
 {
@@ -160,8 +173,10 @@ void BacktrackingWayGenerator::rollback_days(int n)
 
 
 // Steps back n days just to make a new proposal.  You can return to
-// where you were by calling the regrow_pregrown method with the pointer
-// to the start of the track you shrunk the path by.
+// where you were by calling the regrow_pregrown method with the
+// pointer to the start of the track you shrunk the path by.  Inserts
+// a blocker to the frontier after stepping back to mark that the
+// track before the stepped back day must remain unchanged.
 Track *BacktrackingWayGenerator::stepback_days(int n)
 {
   if(n < 1) return nullptr;
@@ -173,11 +188,14 @@ Track *BacktrackingWayGenerator::stepback_days(int n)
   }
   Track *stepped_back_track_start = step_back_track_step();
   --current_day;
-  stepped_back_track_start->prev_element = nullptr;
+  stepped_back_track_start->disconnect();
+  cutoff_day = current_day;
   return stepped_back_track_start;
 }
 
 
+// Step back one day.  Returns the start of the tail of the path split
+// from the track by one day.
 Track *BacktrackingWayGenerator::step_back_track_step()
 {
   visited.unvisit(frontier->descr.dest);
@@ -193,13 +211,14 @@ void BacktrackingWayGenerator::regrow_pregrown(Track *start, int days)
   if(days > current_day)
     days = current_day;
   Track *old = stepback_days(days);
+  //printf("old\n");
+  //old->print();
   current_day = current_day + days;
   old->forward_dispose();
-  frontier->next_element = start;
-  start->prev_element = frontier;
+  frontier = frontier->connect(start);
   Track *i;
   for(i = start; i; i = i->next_element)
     visited.visit(i->descr.dest);
-  for(i = start; i->next_element; i = i->next_element);
-  frontier = i;
+  // Reset cutoff day.
+  cutoff_day = 0;
 }

@@ -5,11 +5,16 @@
 #include "schedule.hpp"
 #include "destination_bitmap.hpp"
 
+#define SUCCESS 0
+#define NO_MORE_FLIGHTS 1
+#define CUTOFF_STRUCK 2
+
 struct BacktrackingWayGenerator
 {
   Schedule *schedule;
   Track *track_start;
   Track *frontier;
+  int cutoff_day;
   int min_cost_so_far;
   DestinationBitmap visited;
   // Current day points to the day of last departure in the track pointed to by frontier.
@@ -18,14 +23,14 @@ struct BacktrackingWayGenerator
   FlightsGenerator del_track_step();
   bool grow_step();
   bool grow_step_from_iter(FlightsGenerator flights);
-  bool regrow_step();
+  bool regrow_step(Track *chopped);
 
 public:
   BacktrackingWayGenerator(Schedule& new_schedule, Track& new_track_start, Track& new_frontier) :
-    current_day(0), schedule(&new_schedule), track_start(&new_track_start), frontier(&new_frontier),
+    cutoff_day(0), current_day(0), schedule(&new_schedule), track_start(&new_track_start), frontier(&new_frontier),
     visited(new_schedule.destination_count, new_track_start.descr.dest) {};
   BacktrackingWayGenerator(Schedule& new_schedule, int starting_city) :
-    current_day(0), schedule(&new_schedule), visited(new_schedule.destination_count, 0){
+    cutoff_day(0), current_day(0), schedule(&new_schedule), visited(new_schedule.destination_count, 0){
     Flights *available_flights = &schedule->flights_from_on(starting_city, 0);
     DEBUG(
 	  if(available_flights->size() > 0)
@@ -37,7 +42,7 @@ public:
     track_start = new Track(initial_trackstep);
     frontier = track_start;
   }
-  Track *grow_trek();
+  Track *grow_trek(Track *chopped = nullptr);
   void rollback_days(int n);
   Track *get_frontier(){
     return frontier;

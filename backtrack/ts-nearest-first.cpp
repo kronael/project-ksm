@@ -57,7 +57,7 @@ int main(int argc, char **argv)
   
   std::cout << "took=" << timer.elapsed() / 1e6 << "s to load data" << std::endl;
 
-  #define EACH_N 10000
+  #define EACH_N 100000
   Timer optimum_timer;
   Track *t;
   TrekOptimum optimum;

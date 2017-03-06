@@ -60,7 +60,7 @@ int main(int argc, char **argv)
   TrekOptimum optimum;
   int i, j;
   int times[EACH_N];
-  double temperature = 10000000;
+  double temperature = 1000000;
   int rollback_days;
   int last_state_cost = 100000000;
   #define TEMP_JUMP 100000
@@ -71,13 +71,15 @@ int main(int argc, char **argv)
     BacktrackingWayGenerator btg(ms, starting_city);
     do{
       if(t){
+	//t->print();
 	rollback_days = days_distribution(GENERATOR);
 	last = btg.stepback_days(rollback_days);
       }
       timer.reset();
-      t = btg.grow_trek();
+      t = btg.grow_trek(last);
+      // Completed a whole run, start over.
       if(!t){
-	printf("completed a whole run\n");
+	printf("all exhausted, running again\n");
 	break;
       }
 
@@ -101,8 +103,13 @@ int main(int argc, char **argv)
 	    last = nullptr;
 	  }
 	}else{
-	  if(last)
-	    btg.regrow_pregrown(last, rollback_days);
+	  if(last){
+	    btg.stepback_days(rollback_days);
+	    t = btg.grow_trek(last);
+	    last->forward_dispose();
+	    last = nullptr;
+	    //btg.regrow_pregrown(last, rollback_days);
+	  }
 	}
       }
 
