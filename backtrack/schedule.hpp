@@ -200,6 +200,10 @@ public:
 // Emulate a forward shedule, while being a backwards schedule.
 class BackwardsSchedule : public TxtSchedule
 {
+  // BackwardsSchedule(TxtSchedule& other_schedule) :
+  //   destination_counter(other_schedule.destination_counter), schedule(other_schedule.schedule),
+  //   backwards_schedule(other_schedule.schedule) {}
+
   virtual Flights& flights_from_on(int dept, int day){
     return flights_to_on(dept, day);
   }

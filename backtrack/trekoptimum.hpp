@@ -1,7 +1,6 @@
 #include "debug.hpp"
+#include "types.hpp"
 #include "trackstep.hpp"
-
-#define MAX_INT 100000000
 
 struct TrekOptimum
 {

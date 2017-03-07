@@ -74,10 +74,19 @@ struct Track
   // current track step and all successive steps in the track.
   void print(){
     //printf("%d -> %d $%d ($%d)\n", hashtag_out(descr.dept).c_str(), hashtag_out(descr.dest).c_str(), descr.cost, total_cost);
-    printf("%d -> %d $%d ($%d)\n", descr.dept, descr.dest, descr.cost, total_cost);
+    printf("%s -> %s $%d ($%d)\n", hashtag_out(descr.dept).c_str(), hashtag_out(descr.dest).c_str(), descr.cost, total_cost);
     if(next_element)
       next_element->print();
   }
+
+  // Prints the track in forward order until the end.  I.E. prints the
+  // current track step and all successive steps in the track.
+  void system_print(int day = 0){
+    printf("%s %s %d %d\n", hashtag_out(descr.dept).c_str(), hashtag_out(descr.dest).c_str(), day, descr.cost);
+    if(next_element)
+      next_element->system_print(day + 1);
+  }
+
 
   // Creates a copy of the track (current step and successive steps).
   // Returns pointer to the frontier of the newly created track.
@@ -126,6 +135,11 @@ struct Track
     Track *i;
     for(i = this; i->next_element; i = i->next_element);
     return i;
+  }
+  Track *start(){
+    Track *i;
+    for(i = this; i->prev_element; i = i->prev_element);
+    return i->next_element;
   }
 };
 
