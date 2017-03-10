@@ -22,6 +22,9 @@ struct Schedule
   unsigned int destination_count;
   unsigned int schedule_days;
   virtual Flights& flights_from_on(int dept, int day) = 0;
+  Schedule() {}
+  Schedule(unsigned int new_max_destination, unsigned int new_destination_count, unsigned int new_schedule_days) :
+    max_destination(new_max_destination), destination_count(new_destination_count), schedule_days(new_schedule_days) {} 
 };
 
 
@@ -30,6 +33,7 @@ class TxtSchedule : public Schedule
   DestinationBitmap destination_counter;
   std::vector< std::vector<Flights> > schedule;
   std::vector< std::vector<Flights> > backwards_schedule;
+  Flights linear_schedule;
   void add_flight(int dept, int dest, int day, int cost){
     DEBUG(printf("adding flight dept=%d dest=%d day=%d cost=%d\n", dept, dest, day, cost));
     if(schedule_days < day){
@@ -45,6 +49,7 @@ class TxtSchedule : public Schedule
       destination_counter.visit(dest);
     Flight new_flight(dept, dest, cost);
     schedule[day][dept].push_back(new_flight);
+    linear_schedule.push_back(new_flight);
     Flight new_reversed_flight(dest, dept, cost);
     backwards_schedule[day][dest].push_back(new_reversed_flight);
   }
@@ -72,6 +77,9 @@ public:
     sort_flights(&backwards_schedule);
   }
 
+  void sort_linear_flights(){
+    std::sort(std::begin(linear_schedule), std::end(linear_schedule), has_lower_cost);
+  }
 
   // Randomly choose 'number_of_schuffles' flights from every
   // available city on each day and place them to the start of the
@@ -198,14 +206,18 @@ public:
 
 
 // Emulate a forward shedule, while being a backwards schedule.
-class BackwardsSchedule : public TxtSchedule
+class BackwardsSchedule : public Schedule
 {
-  // BackwardsSchedule(TxtSchedule& other_schedule) :
-  //   destination_counter(other_schedule.destination_counter), schedule(other_schedule.schedule),
-  //   backwards_schedule(other_schedule.schedule) {}
-
+  TxtSchedule backing_schedule;
+public:
+  BackwardsSchedule() : Schedule() {}
+  BackwardsSchedule(TxtSchedule& new_backing_schedule) :
+    backing_schedule(new_backing_schedule),
+    Schedule(new_backing_schedule.max_destination, new_backing_schedule.destination_count,
+	     new_backing_schedule.schedule_days) {}
+  // Ivert the schedule.
   virtual Flights& flights_from_on(int dept, int day){
-    return flights_to_on(dept, day);
+    return backing_schedule.flights_to_on(dept, day);
   }
 };
 

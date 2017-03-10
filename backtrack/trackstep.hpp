@@ -1,6 +1,8 @@
 #ifndef TRACKSTEP_H
 #define TRACKSTEP_H
 
+#include <fstream>
+#include <iostream>
 #include <stdio.h>
 
 #include "cityhash.hpp"
@@ -73,7 +75,6 @@ struct Track
   // Prints the track in forward order until the end.  I.E. prints the
   // current track step and all successive steps in the track.
   void print(){
-    //printf("%d -> %d $%d ($%d)\n", hashtag_out(descr.dept).c_str(), hashtag_out(descr.dest).c_str(), descr.cost, total_cost);
     printf("%s -> %s $%d ($%d)\n", hashtag_out(descr.dept).c_str(), hashtag_out(descr.dest).c_str(), descr.cost, total_cost);
     if(next_element)
       next_element->print();
@@ -81,12 +82,19 @@ struct Track
 
   // Prints the track in forward order until the end.  I.E. prints the
   // current track step and all successive steps in the track.
-  void system_print(int day = 0){
-    printf("%s %s %d %d\n", hashtag_out(descr.dept).c_str(), hashtag_out(descr.dest).c_str(), day, descr.cost);
+  void system_print(std::ostream& output = std::cout, int day = 0){
+    output << hashtag_out(descr.dept) << " " << hashtag_out(descr.dest) << " " << day << " " << descr.cost << std::endl;
     if(next_element)
-      next_element->system_print(day + 1);
+      next_element->system_print(output, day + 1);
   }
 
+  // Same as system_print, but reverse destination and start.
+  void reverse_system_print(std::ostream& output = std::cout, int day = 0){
+    if(output == std::cout) printf("R ");
+    output << hashtag_out(descr.dest) << " " << hashtag_out(descr.dept) << " " << day << " " << descr.cost << std::endl;
+    if(prev_element) if(prev_element->prev_element)
+	prev_element->reverse_system_print(output, day + 1);
+  }
 
   // Creates a copy of the track (current step and successive steps).
   // Returns pointer to the frontier of the newly created track.

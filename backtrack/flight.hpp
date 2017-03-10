@@ -16,8 +16,8 @@ struct Flight
 
 bool has_lower_cost(Flight x, Flight y);
 
-#define Flights std::vector<Flight>
-#define FlightsIterator Flights::iterator
+typedef std::vector<Flight> Flights;
+typedef Flights::iterator FlightsIterator;
 
 
 class FlightsGenerator
@@ -38,7 +38,8 @@ public:
   }
   void print(){
     printf("Iterator(%x, %x)\n", current, end);
-    if(!is_valid()) printf("Iterator(%x, %x): exhausted\n", current, end);
+    if(!is_valid())
+      printf("Iterator(%x, %x): exhausted\n", current, end);
     for(Flights::iterator i = current; i < end; ++i)
       printf("Iterator(%x, %x): %d -> %d $%d\n", current, end, i->dept, i->dest, i->cost);
   }

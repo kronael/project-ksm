@@ -48,12 +48,17 @@ double mean(const int* x, int size)
 
 BackwardsSchedule backward_schedule;
 TxtSchedule forward_schedule;
+TxtSchedule greedy_forward_schedule;
 std::vector<TrekOptimum> optima;
+bool reverse[4] = {false, false, false, false};
 bool times_up = false;
 std::mutex yard_gate;
 std::condition_variable graveyard;
 unsigned int corpses_count = 0;
 unsigned int starting_city;
+
+const char* INPUT_FILE;
+
 
 void execute_ts_backward_sorted_sa(unsigned int id)
 {
@@ -273,15 +278,40 @@ void grim_reap(unsigned int worker_count)
 
   int current_min_cost = MAX_INT;
   Track *current_optimum;
-  for(auto i = std::begin(optima); i != std::end(optima); ++i)
-    if(current_min_cost > i->minimal_cost){
-      current_min_cost = i->minimal_cost;
-      current_optimum = i->minimum;
+  int optimum_i = 0;
+  for(int i = 0; i < optima.size(); ++i)
+    if(current_min_cost > optima[i].minimal_cost){
+      current_min_cost = optima[i].minimal_cost;
+      current_optimum = optima[i].minimum;
+      optimum_i = i;
     }
   printf(">>> SYSTEM OUTPUT\n");
   printf("%d\n", current_min_cost);
   if(current_min_cost < MAX_INT && current_optimum)
-    current_optimum->start()->system_print();
+    if(reverse[optimum_i]){
+      current_optimum->frontier()->reverse_system_print();
+    }else{
+      current_optimum->start()->system_print();
+    }
+
+  
+  std::ofstream output;
+  output.open("ts-thread.out");
+  output << current_min_cost << std::endl;
+  if(current_min_cost < MAX_INT && current_optimum)
+    if(reverse[optimum_i]){
+      current_optimum->frontier()->reverse_system_print(output);
+    }else{
+      current_optimum->start()->system_print(output);
+    }
+  output.close();
+
+  // Run the check script.
+  char cmd[1024];
+  snprintf(cmd, 1023, "python ../../travelling-salesman/verification_script/verify.py %s ts-thread.out", INPUT_FILE);
+  printf("validating output by: %s\n", cmd);
+  system(cmd);
+
   return;
 }
 
@@ -290,6 +320,8 @@ int main(int argc, char **argv)
 {
   if(argc < 1)
     exit(1);
+
+  INPUT_FILE = argv[1];
   
   char *debugging = getenv("DEBUG");
   if(debugging && (strcmp(debugging, "1") == 0))
@@ -298,24 +330,36 @@ int main(int argc, char **argv)
   Timer timer;
   optima.push_back(TrekOptimum());
   optima.push_back(TrekOptimum());
+  optima.push_back(TrekOptimum());
+  optima.push_back(TrekOptimum());
   std::vector<std::thread*> workers;
 
   // Start the killer thread.
   workers.push_back(new std::thread(grim_reap, 2));
 
-  // Start backwards SA solver.
-  starting_city = backward_schedule.load_flights_from_file(argv[1]);
-  backward_schedule.sort_backwards_flights();
-  std::cout << "took=" << timer.elapsed() / 1e6 << "s to load data" << std::endl;
-
-  workers.push_back(new std::thread(execute_ts_backward_sorted_sa, 0));
-
   // Start forward SA solver.
-  starting_city = forward_schedule.load_flights_from_file(argv[1]);
+  starting_city = forward_schedule.load_flights_from_file(INPUT_FILE);
   forward_schedule.sort_flights();
   std::cout << "took=" << timer.elapsed() / 1e6 << "s to load data" << std::endl;
+  timer.reset();
 
   workers.push_back(new std::thread(execute_ts_forward_sorted_sa, 1));
+  reverse[1] = false;
+
+  // Start backwards SA solver.
+  forward_schedule.sort_backwards_flights();
+  backward_schedule = forward_schedule;
+  std::cout << "took=" << timer.elapsed() / 1e6 << "s to sort backwards schedule" << std::endl;
+  timer.reset();
+
+  workers.push_back(new std::thread(execute_ts_backward_sorted_sa, 0));
+  reverse[0] = true;
+
+  forward_schedule.sort_linear_flights();
+  greedy_forward_schedule = forward_schedule;
+  std::cout << "took=" << timer.elapsed() / 1e6 << "s to sort linear schedule" << std::endl;
+  timer.reset();
+
 
   for(auto i = std::begin(workers); i != std::end(workers); ++i)
     (*i)->join();
