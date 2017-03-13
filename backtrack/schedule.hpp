@@ -7,6 +7,7 @@
 #include <random>
 #include <utility>
 
+#include "csv.h"
 #include "debug.hpp"
 #include "destination_bitmap.hpp"
 #include "spliceit.hpp"
@@ -155,28 +156,21 @@ public:
     int starting_city = hashtag_in(start_chopped);
     DEBUG(printf("starting city=%d\n", starting_city));
     free(start_chopped);
-
-    while((read = getline(&line, &len, infile)) != -1){
-      nfields = str_split(line, INPUT_SEPARATOR, &fields);
-      // Include selected fields.
-      DEBUG(printf("read fields %s, %s, %s, %s\n", fields[0], fields[1], fields[2], fields[3]));
-      int dept = hashtag_in(fields[0]);
-      int dest = hashtag_in(fields[1]);
-      int day = stol(fields[2]);
-      char *chopped;
-      chop(fields[3], &chopped);
-      int cost = stol(chopped);
-      free(chopped);
-      add_flight(dept, dest, day, cost);
-
-      int i;
-      for(i = 0; i < nfields; i++)
-	free(fields[i]);
-      free(fields);
-    }
-
     fclose(infile);
-    free(line);
+
+    io::CSVReader<4, io::trim_chars<>, io::no_quote_escape<' '>> in(input_filename);
+    in.next_line();
+    in.set_header("dept_str", "dest_str", "day", "cost");
+    std::string dept_str;
+    std::string dest_str;
+    unsigned int day;
+    unsigned int cost;
+    unsigned int dept = hashtag_in(dept_str.c_str());
+    int dest = hashtag_in(dest_str.c_str());
+    while(in.read_row(dept_str, dest_str, day, cost)){
+      DEBUG(printf("line dept=%s dest=%s day=%d cost=%d\n", dept_str.c_str(), dest_str.c_str(), day, cost));
+      add_flight(hashtag_in(dept_str.c_str()), hashtag_in(dest_str.c_str()), day, cost);
+    }
 
     // Record destination count.
     destination_count = destination_counter.visited_count;
