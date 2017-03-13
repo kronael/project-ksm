@@ -36,12 +36,14 @@ class TxtSchedule : public Schedule
   std::vector< std::vector<Flights> > backwards_schedule;
   void add_flight(int dept, int dest, int day, int cost){
     DEBUG(printf("adding flight dept=%d dest=%d day=%d cost=%d\n", dept, dest, day, cost));
-    for(; schedule_days < day; ++schedule_days){
+    if(schedule_days < day){
       std::vector<Flights> new_day;
       Flights empty_flights;
       new_day.assign(max_destination, empty_flights);
-      schedule.push_back(new_day);
-      backwards_schedule.push_back(new_day);
+      for(; schedule_days < day; ++schedule_days){
+	schedule.push_back(new_day);
+	backwards_schedule.push_back(new_day);
+      }
     }
     // Count destinations.
     if(!destination_counter.visited(dest))
