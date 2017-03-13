@@ -19,7 +19,7 @@ export BACKWARDS_PARAM_SUCCESSES=4
 export BACKWARDS_PARAM_SUCCESS_PR=0.2
 export BACKWARDS_ZERO_TEMP=100
 
-INPUT_FILE=data_50.txt
+INPUT_FILE=data_50_50.txt
 
 # ./production-forward-nearest-sa $INPUT_FILE
 

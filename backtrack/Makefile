@@ -29,4 +29,5 @@ test: test.cpp
 *.cpp: *.hpp
 spliceit: spliceit.cpp
 	g++ $(CXXFLAGS) $< -o spliceit
+sparse_generator: sparse_generator.cpp
 .PHONY: production
