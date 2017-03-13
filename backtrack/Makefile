@@ -20,7 +20,7 @@ ts-thread: ts-thread.cpp flight.o backtrack.o spliceit.o cityhash.o schedule.o *
 ts-forward-rsa: flight.o backtrack.o spliceit.o cityhash.o schedule.o *.hpp
 ts-backward-sa: flight.o backtrack.o spliceit.o cityhash.o schedule.o *.hpp
 ts-forward-sa: flight.o backtrack.o spliceit.o cityhash.o schedule.o *.hpp
-#	g++ $(CXXFLAGS) $< flight.o backtrack.o spliceit.o cityhash.o schedule.o
+	g++ $(CXXFLAGS) -o $@ ts-forward-sa.cpp flight.o backtrack.o spliceit.o cityhash.o schedule.o -pthread
 ts-nearest-shuffle: flight.o backtrack.o spliceit.o cityhash.o schedule.o *.hpp
 ts-nearest-first: flight.o backtrack.o spliceit.o cityhash.o schedule.o *.hpp
 ts-plain-backtrack: flight.o backtrack.o spliceit.o cityhash.o schedule.o *.hpp
