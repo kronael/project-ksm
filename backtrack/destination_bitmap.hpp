@@ -17,6 +17,11 @@ public:
   unsigned int visited_count;
   /*! Construct a bitmap of appropriate size.
    */
+  DestinationBitmap(unsigned int new_total_count) :
+    total_count(new_total_count), visited_count(0){
+    for(int i = 0; i < HASH_SIZE; ++i)
+      bitmap[i] = false;
+  }
   DestinationBitmap(unsigned int new_total_count, unsigned int first) :
     total_count(new_total_count), visited_count(0){
     //bitmap.assign(HASH_SIZE, false);

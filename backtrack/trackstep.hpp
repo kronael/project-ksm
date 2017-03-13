@@ -11,12 +11,12 @@
 
 struct TrackStep
 {
-  int dept, dest, cost;
+  unsigned int dept, dest, cost;
   FlightsGenerator flights_iter;
-  TrackStep(int new_dept, int new_dest, int new_cost, FlightsGenerator& new_flights_iter) :
+  TrackStep() :
+    dept(0), dest(0), cost(0) {}
+  TrackStep(unsigned int new_dept, unsigned int new_dest, unsigned int new_cost, FlightsGenerator& new_flights_iter) :
     dept(new_dept), dest(new_dest), cost(new_cost), flights_iter(new_flights_iter) {}
-  // TrackStep(int new_dept, int new_dest, int new_cost, FlightsGenerator& new_flights_iter, FlightsGenerator& new_proposal_flights_iter) :
-  //   dept(new_dept), dest(new_dest), cost(new_cost), flights_iter(new_flights_iter), proposal_flights_iter(new_flights_iter) {}
 };
 
 
@@ -25,6 +25,8 @@ struct Track
   Track *next_element, *prev_element;
   int total_cost;
   TrackStep descr;
+  explicit Track() :
+    prev_element(nullptr), next_element(nullptr), total_cost(0) {}
   Track(TrackStep& new_descr) :
     descr(new_descr), prev_element(nullptr), next_element(nullptr), total_cost(new_descr.cost) {}
   Track(TrackStep& new_descr, Track *prev) :
@@ -78,6 +80,18 @@ struct Track
     printf("%s -> %s $%d ($%d)\n", hashtag_out(descr.dept).c_str(), hashtag_out(descr.dest).c_str(), descr.cost, total_cost);
     if(next_element)
       next_element->print();
+  }
+
+  // Prints the track in forward order until the end.  I.E. prints the
+  // current track step and all successive steps in the track.
+  void print_terse(){
+    printf("%s -> %s $%4d", hashtag_out(descr.dept).c_str(), hashtag_out(descr.dest).c_str(), descr.cost);
+    if(next_element){
+      printf(", ");
+      next_element->print_terse();
+    }else{
+      printf("\n");
+    }
   }
 
   // Prints the track in forward order until the end.  I.E. prints the
@@ -148,6 +162,44 @@ struct Track
     Track *i;
     for(i = this; i->prev_element; i = i->prev_element);
     return i->next_element;
+  }
+
+  // Recalculate total_cost of the track from this track step forward,
+  // assuming the previous step is either non-existent or has correct
+  // total_cost.
+  void fix_total_cost(){
+    DEBUG(printf("fixing total cost %d -> %d ($%d)\n", descr.dept, descr.dest, descr.cost));
+    if(prev_element){
+      total_cost = prev_element->total_cost;
+    }else{
+      total_cost = 0;
+    }
+    total_cost += descr.cost;
+    if(next_element)
+      next_element->fix_total_cost();
+  }
+
+  // Validate the track ending at this and staring at start.  The
+  // track is printed in reverse if reverse is true.
+  int validate(Track& start, const char *input_file, bool reverse = false){
+    std::ofstream output;
+    output.open("flights.out");
+    output << total_cost << std::endl;
+    if(reverse){
+      reverse_system_print(output);
+    }else{
+      start.system_print(output);
+    }
+    output.close();
+
+    // Run the check script.
+    char cmd[1024];
+    snprintf(cmd, 1023, "python ../../travelling-salesman/verification_script/verify.py %s flights.out", input_file);
+    printf("validating output by: %s\n", cmd);
+    printf("current track: ");
+    start.print_terse();
+    if(system(cmd))
+      throw "failed to validate";
   }
 };
 

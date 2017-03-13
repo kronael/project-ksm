@@ -6,11 +6,11 @@
 
 struct Flight
 {
-  int dept, dest, cost;
+  unsigned int dept, dest, cost, day;
   Flight() :
-    dept(0), dest(0), cost(0) {}
-  Flight(int new_dept, int new_dest, int new_cost) :
-    dept(new_dept), dest(new_dest), cost(new_cost) {}
+    dept(0), dest(0), cost(0), day(0) {}
+  Flight(unsigned int new_dept, unsigned int new_dest, unsigned int new_cost, unsigned int new_day) :
+    dept(new_dept), dest(new_dest), cost(new_cost), day(new_day) {}
 };
 
 
@@ -25,15 +25,17 @@ class FlightsGenerator
   FlightsIterator end;
 public:
   FlightsIterator current;
+  FlightsGenerator() :
+    end(nullptr), current(nullptr) {}
   FlightsGenerator(Flights& flights) :
     current(std::begin(flights)), end(std::end(flights)) {}
-  bool has_next(){
+  virtual bool has_next(){
     current != end;
   }
-  bool is_valid(){
+  virtual bool is_valid(){
     current < end;
   }
-  FlightsIterator next(){
+  virtual FlightsIterator next(){
     return ++current;
   }
   void print(){
@@ -42,6 +44,28 @@ public:
       printf("Iterator(%x, %x): exhausted\n", current, end);
     for(Flights::iterator i = current; i < end; ++i)
       printf("Iterator(%x, %x): %d -> %d $%d\n", current, end, i->dept, i->dest, i->cost);
+  }
+};
+
+
+class FlightsIteratorGenerator : public FlightsGenerator
+{
+  std::vector<Flights::iterator>::iterator end_it;
+  std::vector<Flights::iterator>::iterator current_it;
+public:
+  FlightsIterator current;
+  FlightsIteratorGenerator() :
+    end_it(nullptr), current_it(nullptr), current(nullptr) {}
+  FlightsIteratorGenerator(std::vector<Flights::iterator>& flights) :
+    current_it(std::begin(flights)), current(*current_it), end_it(std::end(flights)) {}
+  virtual bool has_next(){
+    current_it != end_it;
+  }
+  virtual bool is_valid(){
+    current_it < end_it;
+  }
+  virtual FlightsIterator next(){
+    return *(++current_it);
   }
 };
 

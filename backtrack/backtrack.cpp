@@ -222,3 +222,68 @@ void BacktrackingWayGenerator::regrow_pregrown(Track *start, int days)
   // Reset cutoff day.
   cutoff_day = 0;
 }
+
+
+// Updates a trackstep. If successful, returns cost of the original flight, otherwise, returns -1.
+bool BacktrackingWayGenerator::exchange_trackstep(Track *track, unsigned int day, unsigned int new_dept, unsigned int new_dest)
+{
+  Flights *dept_flights = &schedule->flights_from_on(new_dept, day);
+  for(Flights::iterator ia = dept_flights->begin(); ia != dept_flights->end(); ++ia)
+    if(ia->dest == new_dest){
+      FlightsGenerator flights_iter(*dept_flights);
+      track->descr = TrackStep(new_dept, new_dest, ia->cost, flights_iter);
+      return true;
+    }
+
+  return false;
+}
+
+/* Exchanges the flights at day dept_day departure and arrival
+   airports.  At middle_dept_day, switch the link originating there.
+   At the day before, change to have destination at the destination
+   node of the first_dept_day original link.  The flight on day
+   first_dept_day + 1 is exchanged for a link from former destination
+   of a flight on first_dept_day to the destination of the flight on
+   first_dept_day.
+  
+   Returns true if it succeeded (all the changes are doable).
+   Returns false if it failed.
+*/
+bool BacktrackingWayGenerator::switch_flight(unsigned int all_days, unsigned int middle_switch_dept_day)
+{
+  unsigned int cur_dept_day = all_days;
+  Track *i;
+  for(i = frontier; i->prev_element; i = i->prev_element){
+    if(cur_dept_day <= middle_switch_dept_day) break;
+    --cur_dept_day;
+  }
+  // To switch, there needs to be at least one flight before middle_switch_dept_day flight.
+  if(!i->prev_element) return false;
+  // To switch, we need to exclude the first phony TrackStep (TODO fix).
+  if(!i->prev_element->prev_element) return false;
+  // To switch, there needs to be at least one flight after middle_switch_dept_day flight.
+  if(!i->next_element) return false;
+  DEBUG(printf("trying to switch middle=%d: %d <-> %d <-> %d <-> %d\n", middle_switch_dept_day, i->prev_element->descr.dept, i->descr.dept, i->descr.dest, i->next_element->descr.dest));
+
+  TrackStep old_middle = i->descr;
+  if(!exchange_trackstep(i, cur_dept_day, i->descr.dest, i->descr.dept)){
+    return false;
+  }else{
+    // Reconnect before-middle flight day to a different destination: the new departure of middle flight day.
+    TrackStep old_before = i->prev_element->descr;
+    if(!exchange_trackstep(i->prev_element, cur_dept_day - 1, i->prev_element->descr.dept, i->descr.dept)){
+      // Switch middle day back.
+      i->descr = old_middle;
+      return false;
+    }else{
+      if(!exchange_trackstep(i->next_element, cur_dept_day + 1, i->descr.dest, i->next_element->descr.dest)){
+	// Switch middle and before back.
+	i->descr = old_middle;
+	i->prev_element->descr = old_before;
+	return false;
+      }else{
+	return true;
+      }
+    }
+  }
+}

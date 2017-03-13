@@ -265,6 +265,108 @@ void execute_ts_forward_sorted_sa(unsigned int id)
   }
 }
 
+void execute_ts_forward_exchanging_sa(unsigned int id)
+{
+  const int EACH_N = 100000;
+  const int TEMP_JUMP = 100000;
+  const int INITIAL_TEMPERATURE = 1000000;
+  const int PARAM_SUCCESSES = 2;
+  const double PARAM_SUCCESS_PR = .2;
+
+  double temperature = INITIAL_TEMPERATURE;
+  int last_state_cost = 100000000;
+
+  bool we_re_done = false;
+  Timer timer;
+  Timer optimum_timer;
+  Track *t, *last;
+  int i, j;
+  int times[EACH_N];
+  int rollback_days;
+  std::negative_binomial_distribution<int> days_distribution(2, 0.2);
+  std::uniform_real_distribution<double> uniform_real(0, 1);
+
+  std::cout << "worker id=" << id << " on thread=" << std::this_thread::get_id() << std::endl;
+
+  while(1){
+    BacktrackingWayGenerator btg(forward_schedule, starting_city);
+    do{
+      // Do the threading work.
+      if(times_up || we_re_done){
+	{
+	  std::cout << "times up, dying" << std::endl;
+	  std::lock_guard<std::mutex> lock(yard_gate);
+	  ++corpses_count;
+	}
+	graveyard.notify_all();
+	return;
+      }
+
+      if(t){
+	rollback_days = days_distribution(GENERATOR);
+	last = btg.stepback_days(rollback_days);
+      }
+      timer.reset();
+      t = btg.grow_trek(last);
+      // Completed a whole run, start over.
+      if(!t){
+	printf("all exhausted, running again\n");
+	break;
+      }
+
+      if(optima[id].update(*t->next_element, *btg.get_frontier())){
+	std::cout << "took=" << optimum_timer.elapsed() / 1000 << "forward_schedule to find new optimum\n";
+	optimum_timer.reset();
+	printf("OUT BEGIN\n");
+	t->next_element->print();
+	printf("OUT END\n");
+	if(last){
+	  last->forward_dispose();
+	  last = nullptr;
+	}
+      }else{
+	double transition_prob = exp(-(btg.frontier->total_cost - last_state_cost) / temperature);
+	if(uniform_real(GENERATOR) < transition_prob){
+	  //printf("move from=%d to=%d\n", last_state_cost, btg.frontier->total_cost);
+	  last_state_cost = btg.frontier->total_cost;
+	  if(last){
+	    last->forward_dispose();
+	    last = nullptr;
+	  }
+	}else{
+	  if(last){
+	    btg.stepback_days(rollback_days);
+	    t = btg.grow_trek(last);
+	    last->forward_dispose();
+	    last = nullptr;
+	    //btg.regrow_pregrown(last, rollback_days);
+	  }
+	}
+      }
+
+      if(j >= TEMP_JUMP){
+	temperature = temperature / float(2);
+	printf("new temp=%f\n", temperature);
+	if(temperature < 300){
+	  printf("zero temperature: we're done\n");
+	  we_re_done = true;
+	}
+	j = 0;
+      }
+      ++j;
+
+
+      if(i == 0)
+	std::cout << "took=" << timer.elapsed() << "us to generate the first track\n";
+      if(i >= EACH_N){
+	std::cout << "took=" << mean(times, EACH_N) << "us average to generate one track\n";
+	i = 0;
+      }
+      times[i++] = timer.elapsed();
+    } while(t);
+  }
+}
+
 
 // Sleeps a specified time, then notifies worker thread to stop
 // working, waits for them to stop, calculates the best track, outputs

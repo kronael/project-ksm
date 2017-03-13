@@ -22,6 +22,7 @@ struct Schedule
   unsigned int destination_count;
   unsigned int schedule_days;
   virtual Flights& flights_from_on(int dept, int day) = 0;
+  //virtual Flights& flights_to_on(int dest, int day) = 0;
   Schedule() {}
   Schedule(unsigned int new_max_destination, unsigned int new_destination_count, unsigned int new_schedule_days) :
     max_destination(new_max_destination), destination_count(new_destination_count), schedule_days(new_schedule_days) {} 
@@ -33,7 +34,6 @@ class TxtSchedule : public Schedule
   DestinationBitmap destination_counter;
   std::vector< std::vector<Flights> > schedule;
   std::vector< std::vector<Flights> > backwards_schedule;
-  Flights linear_schedule;
   void add_flight(int dept, int dest, int day, int cost){
     DEBUG(printf("adding flight dept=%d dest=%d day=%d cost=%d\n", dept, dest, day, cost));
     if(schedule_days < day){
@@ -47,13 +47,14 @@ class TxtSchedule : public Schedule
     // Count destinations.
     if(!destination_counter.visited(dest))
       destination_counter.visit(dest);
-    Flight new_flight(dept, dest, cost);
+    Flight new_flight(dept, dest, cost, day);
     schedule[day][dept].push_back(new_flight);
     linear_schedule.push_back(new_flight);
-    Flight new_reversed_flight(dest, dept, cost);
+    Flight new_reversed_flight(dest, dept, cost, day);
     backwards_schedule[day][dest].push_back(new_reversed_flight);
   }
 public:
+  Flights linear_schedule;
   TxtSchedule() : destination_counter(HASH_SIZE, 0){
     // Init for day 0.
     schedule_days = 0;
@@ -218,86 +219,6 @@ public:
   // Ivert the schedule.
   virtual Flights& flights_from_on(int dept, int day){
     return backing_schedule.flights_to_on(dept, day);
-  }
-};
-
-
-class MockSchedule : public Schedule
-{
-  std::vector< std::vector<Flights> > schedule;
-public:
-  MockSchedule(){
-    // Day0
-    std::vector<Flights> day0;
-
-    Flights zero_flights;
-
-    Flights flights0;
-    Flight f00(0, 1, 1);
-    Flight f01(0, 2, 19);
-    Flight f02(0, 3, 9);
-    Flight f03(0, 6, 2);
-    flights0.push_back(f00);
-    flights0.push_back(f01);
-    flights0.push_back(f02);
-    flights0.push_back(f03);
-
-    day0.assign(6, zero_flights);
-    day0[0] = flights0;
-    schedule.push_back(day0);
-
-    // Day1
-    std::vector<Flights> day1;
-    day1.assign(6, zero_flights);
-
-    Flights flights11;
-    Flight f10(1, 2, 20);
-    Flight f11(1, 4, 9);
-    flights11.push_back(f10);
-    flights11.push_back(f11);
-
-    day1[1] = flights11;
-
-    Flights flights12;
-    Flight f12(2, 1, 4);
-    Flight f13(2, 0, 8);
-    flights12.push_back(f12);
-    flights12.push_back(f13);
-    day1[2] = flights12;
-    schedule.push_back(day1);
-
-    // Day2
-    std::vector<Flights> day2;
-    day2.assign(6, zero_flights);
-    
-    Flights flights20;
-    Flight f22(0, 3, 4);
-    flights20.push_back(f22);
-    day2[0] = flights20;
-
-    Flights flights22;
-    Flight f21(2, 5, 20);
-    flights22.push_back(f21);
-    day2[2] = flights22;
-
-    Flights flights24;
-    Flight f20(4, 0, 20);
-    Flight f23(4, 2, 2);
-    flights24.push_back(f20);
-    flights24.push_back(f23);
-    day2[4] = flights24;
-
-    schedule.push_back(day2);
-
-    destination_count = 6;
-    schedule_days = 3;
-  }
-  virtual Flights& flights_from_on(int dept, int day){
-    if(day >= schedule_days || dept == 6){
-      Flights *empty = new Flights();
-      return *empty;
-    }
-    return schedule[day][dept];
   }
 };
 

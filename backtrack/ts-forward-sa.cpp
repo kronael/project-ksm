@@ -56,7 +56,8 @@ int main(int argc, char **argv)
 
   #define EACH_N 100000
   Timer optimum_timer;
-  Track *t, *last;
+  Track *t = nullptr;
+  Track *last = nullptr;
   TrekOptimum optimum;
   int i, j;
   int times[EACH_N];
@@ -77,6 +78,7 @@ int main(int argc, char **argv)
       }
       timer.reset();
       t = btg.grow_trek(last);
+      t->frontier()->validate(*btg.get_start()->next_element, argv[1]);
       // Completed a whole run, start over.
       if(!t){
 	printf("all exhausted, running again\n");
