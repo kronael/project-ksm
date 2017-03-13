@@ -22,7 +22,6 @@ struct Schedule
   unsigned int destination_count;
   unsigned int schedule_days;
   virtual Flights& flights_from_on(int dept, int day) = 0;
-  //virtual Flights& flights_to_on(int dest, int day) = 0;
   Schedule() {}
   Schedule(unsigned int new_max_destination, unsigned int new_destination_count, unsigned int new_schedule_days) :
     max_destination(new_max_destination), destination_count(new_destination_count), schedule_days(new_schedule_days) {} 
@@ -36,13 +35,12 @@ class TxtSchedule : public Schedule
   std::vector< std::vector<Flights> > backwards_schedule;
   void add_flight(int dept, int dest, int day, int cost){
     DEBUG(printf("adding flight dept=%d dest=%d day=%d cost=%d\n", dept, dest, day, cost));
-    if(schedule_days < day){
+    for(; schedule_days < day; ++schedule_days){
       std::vector<Flights> new_day;
       Flights empty_flights;
       new_day.assign(max_destination, empty_flights);
       schedule.push_back(new_day);
       backwards_schedule.push_back(new_day);
-      ++schedule_days;
     }
     // Count destinations.
     if(!destination_counter.visited(dest))

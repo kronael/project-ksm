@@ -1,26 +1,28 @@
 #!/bin/bash
 
 # seconds to live
-export TIME_TO_LIVE=25
+export TIME_TO_LIVE=28
 
 # Temperature is halved after generation of FORWARD_TEMP_JUMP routes.
-export FORWARD_TEMP_JUMP=1000000
+export FORWARD_TEMP_JUMP=100000
 # Processing stops when temperature reaches 300, so the initial temperature gives how long to process.
 export FORWARD_INITIAL_TEMPERATURE=1000000
 # The "day to regrow route from" is drawn from a negative binomial distribution with
 # FORWARD_PARAM_SUCCESSES sucesses and FORWARD_PARAM_SUCCESS_PR prob. of success.
-export FORWARD_PARAM_SUCCESSES=1
+export FORWARD_PARAM_SUCCESSES=4
 export FORWARD_PARAM_SUCCESS_PR=0.2
-export FORWARD_ZERO_TEMP=0.1
+export FORWARD_ZERO_TEMP=100
 
-export BACKWARDS_TEMP_JUMP=1000000
+export BACKWARDS_TEMP_JUMP=100000
 export BACKWARDS_INITIAL_TEMPERATURE=1000000
 export BACKWARDS_PARAM_SUCCESSES=4
 export BACKWARDS_PARAM_SUCCESS_PR=0.2
 export BACKWARDS_ZERO_TEMP=100
 
-INPUT_FILE=data_50_50.txt
+INPUT_FILE=data_200.txt
 
 # ./production-forward-nearest-sa $INPUT_FILE
+# ./production-backwards-nearest-sa $INPUT_FILE
+# export DEBUG=1
 
-./production-backwards-nearest-sa $INPUT_FILE
+./ts-thread $INPUT_FILE
