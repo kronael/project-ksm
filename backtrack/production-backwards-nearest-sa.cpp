@@ -471,16 +471,16 @@ int main(int argc, char **argv)
   std::vector<std::thread*> workers;
 
   // Start the killer thread.
-  workers.push_back(new std::thread(grim_reap, 2));
+  workers.push_back(new std::thread(grim_reap, 1));
 
-  // Start forward SA solver.
+  // // Start forward SA solver.
   starting_city = forward_schedule.load_flights_from_file(INPUT_FILE);
   forward_schedule.sort_flights();
   std::cout << "took=" << timer.elapsed() / 1e6 << "s to load data" << std::endl;
   timer.reset();
 
-  workers.push_back(new std::thread(execute_ts_forward_sorted_sa, 1));
-  reverse[1] = false;
+  // workers.push_back(new std::thread(execute_ts_forward_sorted_sa, 1));
+  // reverse[1] = false;
 
   // Start backwards SA solver.
   forward_schedule.sort_backwards_flights();
@@ -491,10 +491,10 @@ int main(int argc, char **argv)
   workers.push_back(new std::thread(execute_ts_backward_sorted_sa, 0));
   reverse[0] = true;
 
-  forward_schedule.sort_linear_flights();
-  greedy_forward_schedule = forward_schedule;
-  std::cout << "took=" << timer.elapsed() / 1e6 << "s to sort linear schedule" << std::endl;
-  timer.reset();
+  // forward_schedule.sort_linear_flights();
+  // greedy_forward_schedule = forward_schedule;
+  // std::cout << "took=" << timer.elapsed() / 1e6 << "s to sort linear schedule" << std::endl;
+  // timer.reset();
 
 
   for(auto i = std::begin(workers); i != std::end(workers); ++i)

@@ -25,7 +25,7 @@ struct Track
   Track *next_element, *prev_element;
   int total_cost;
   TrackStep descr;
-  explicit Track() :
+  Track() :
     prev_element(nullptr), next_element(nullptr), total_cost(0) {}
   Track(TrackStep& new_descr) :
     descr(new_descr), prev_element(nullptr), next_element(nullptr), total_cost(new_descr.cost) {}

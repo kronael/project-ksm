@@ -29,13 +29,13 @@ public:
     end(nullptr), current(nullptr) {}
   FlightsGenerator(Flights& flights) :
     current(std::begin(flights)), end(std::end(flights)) {}
-  virtual bool has_next(){
+  bool has_next(){
     current != end;
   }
-  virtual bool is_valid(){
+  bool is_valid(){
     current < end;
   }
-  virtual FlightsIterator next(){
+  FlightsIterator next(){
     return ++current;
   }
   void print(){
@@ -48,25 +48,25 @@ public:
 };
 
 
-class FlightsIteratorGenerator : public FlightsGenerator
-{
-  std::vector<Flights::iterator>::iterator end_it;
-  std::vector<Flights::iterator>::iterator current_it;
-public:
-  FlightsIterator current;
-  FlightsIteratorGenerator() :
-    end_it(nullptr), current_it(nullptr), current(nullptr) {}
-  FlightsIteratorGenerator(std::vector<Flights::iterator>& flights) :
-    current_it(std::begin(flights)), current(*current_it), end_it(std::end(flights)) {}
-  virtual bool has_next(){
-    current_it != end_it;
-  }
-  virtual bool is_valid(){
-    current_it < end_it;
-  }
-  virtual FlightsIterator next(){
-    return *(++current_it);
-  }
-};
+// class FlightsIteratorGenerator : public FlightsGenerator
+// {
+//   std::vector<Flights::iterator>::iterator end_it;
+//   std::vector<Flights::iterator>::iterator current_it;
+// public:
+//   FlightsIterator current;
+//   FlightsIteratorGenerator() :
+//     end_it(nullptr), current_it(nullptr), current(nullptr) {}
+//   FlightsIteratorGenerator(std::vector<Flights::iterator>& flights) :
+//     current_it(std::begin(flights)), current(*current_it), end_it(std::end(flights)) {}
+//   virtual bool has_next(){
+//     current_it != end_it;
+//   }
+//   virtual bool is_valid(){
+//     current_it < end_it;
+//   }
+//   virtual FlightsIterator next(){
+//     return *(++current_it);
+//   }
+// };
 
 #endif

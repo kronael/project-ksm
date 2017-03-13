@@ -215,7 +215,7 @@ void execute_ts_forward_sorted_sa(unsigned int id)
 	last = btg.stepback_days(rollback_days);
       }
       timer.reset();
-      t = btg.grow_trek(last);
+      t = btg.grow_trek();
       // Completed a whole run, start over.
       if(!t){
 	printf("all exhausted, running again\n");
@@ -253,9 +253,9 @@ void execute_ts_forward_sorted_sa(unsigned int id)
       }
 
       if(j >= TEMP_JUMP){
-	temperature = temperature / float(2);
+	temperature = temperature / 2.0;
 	printf("new temp=%f\n", temperature);
-	if(temperature < BACKWARDS_ZERO_TEMP){
+	if(temperature < FORWARD_ZERO_TEMP){
 	  printf("zero temperature: we're done\n");
 	  we_re_done = true;
 	}
@@ -457,6 +457,7 @@ void read_in_params(int argc, char **argv)
     DEBUGGING_ENABLED = true;
 }
 
+
 int main(int argc, char **argv)
 {
   if(argc < 1)
@@ -471,7 +472,7 @@ int main(int argc, char **argv)
   std::vector<std::thread*> workers;
 
   // Start the killer thread.
-  workers.push_back(new std::thread(grim_reap, 2));
+  workers.push_back(new std::thread(grim_reap, 1));
 
   // Start forward SA solver.
   starting_city = forward_schedule.load_flights_from_file(INPUT_FILE);
@@ -479,22 +480,22 @@ int main(int argc, char **argv)
   std::cout << "took=" << timer.elapsed() / 1e6 << "s to load data" << std::endl;
   timer.reset();
 
-  workers.push_back(new std::thread(execute_ts_forward_sorted_sa, 1));
-  reverse[1] = false;
+  workers.push_back(new std::thread(execute_ts_forward_sorted_sa, 0));
+  reverse[0] = false;
 
-  // Start backwards SA solver.
-  forward_schedule.sort_backwards_flights();
-  backward_schedule = forward_schedule;
-  std::cout << "took=" << timer.elapsed() / 1e6 << "s to sort backwards schedule" << std::endl;
-  timer.reset();
+  // // Start backwards SA solver.
+  // forward_schedule.sort_backwards_flights();
+  // backward_schedule = forward_schedule;
+  // std::cout << "took=" << timer.elapsed() / 1e6 << "s to sort backwards schedule" << std::endl;
+  // timer.reset();
 
-  workers.push_back(new std::thread(execute_ts_backward_sorted_sa, 0));
-  reverse[0] = true;
+  // workers.push_back(new std::thread(execute_ts_backward_sorted_sa, 0));
+  // reverse[0] = true;
 
-  forward_schedule.sort_linear_flights();
-  greedy_forward_schedule = forward_schedule;
-  std::cout << "took=" << timer.elapsed() / 1e6 << "s to sort linear schedule" << std::endl;
-  timer.reset();
+  // forward_schedule.sort_linear_flights();
+  // greedy_forward_schedule = forward_schedule;
+  // std::cout << "took=" << timer.elapsed() / 1e6 << "s to sort linear schedule" << std::endl;
+  // timer.reset();
 
 
   for(auto i = std::begin(workers); i != std::end(workers); ++i)
