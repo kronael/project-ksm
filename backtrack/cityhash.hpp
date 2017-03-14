@@ -20,7 +20,7 @@ public:
 };
 
 
-int hashtag_in(std::string str);
+int hashtag_in(char *str);
 std::string hashtag_out(int code);
 int stol(std::string str);
 

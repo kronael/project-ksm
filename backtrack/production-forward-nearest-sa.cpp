@@ -5,6 +5,8 @@
 #include <thread>
 #include <future>
 #include <memory>
+#include <random>
+std::default_random_engine GENERATOR(1987);
 
 #include "backtrack.hpp"
 #include "debug.hpp"

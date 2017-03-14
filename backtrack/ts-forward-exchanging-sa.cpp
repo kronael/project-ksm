@@ -1,14 +1,12 @@
 #include <cstdlib>
 #include <stdio.h>
 #include <stdlib.h>
-#include <random>
 
 #include "backtrack.hpp"
 #include "debug.hpp"
 #include "schedule.hpp"
 #include "trackstep.hpp"
 #include "trekoptimum.hpp"
-#include "types.hpp"
 
 bool DEBUGGING_ENABLED = false;
 
@@ -52,65 +50,69 @@ int main(int argc, char **argv)
   Timer timer;
   TxtSchedule ms;
   int starting_city = ms.load_flights_from_file(argv[1]);
-  std::cout << "took=" << timer.elapsed() / 1e6 << "s to load data" << std::endl;
-  timer.reset();
-
   ms.sort_flights();
-  std::cout << "took=" << timer.elapsed() / 1e6 << "s to sort data" << std::endl;
+
+  std::cout << "took=" << timer.elapsed() / 1e6 << "s to load data" << std::endl;
 
   #define EACH_N 100000
   Timer optimum_timer;
-  Track *t = nullptr;
-  Track *last = nullptr;
+  Track *t, *last;
   TrekOptimum optimum;
   int i, j;
   int times[EACH_N];
-  double temperature = 1000000;
+  double temperature = 100;
   int rollback_days;
   int last_state_cost = 100000000;
-  #define TEMP_JUMP 100000
-  std::negative_binomial_distribution<int> days_distribution(2, 0.1);
+  const unsigned int TEMP_JUMP = 1000000;
+  const double ZERO_TEMP = 0.01;
+  std::uniform_int_distribution<int> days_distribution(2, ms.schedule_days -2);
   std::uniform_real_distribution<double> uniform_real(0, 1);
 
   while(1){
     BacktrackingWayGenerator btg(ms, starting_city);
     t = btg.grow_trek();
+    printf("first\n");
+    DEBUG(t->frontier()->validate(*btg.get_start()->next_element, argv[1]));
+    DEBUG(printf("got cost=%d\n", btg.get_frontier()->total_cost));
     do{
-      if(t){
-	//t->print();
-	rollback_days = days_distribution(GENERATOR);
-	btg.stepback_days(rollback_days);
-      }
       timer.reset();
-      t = btg.grow_trek(nullptr, true);
-      DEBUG(t->frontier()->validate(*btg.get_start()->next_element, argv[1]));
+      if(t){
+	rollback_days = days_distribution(GENERATOR);
+	if(!btg.switch_flight(ms.schedule_days, rollback_days))
+	  continue;
+	btg.get_start()->next_element->fix_total_cost();
+	DEBUG(printf("got cost=%d\n", btg.get_frontier()->total_cost));
+	btg.get_frontier()->validate(*btg.get_start()->next_element, argv[1]);
+      }
       // Completed a whole run, start over.
       if(!t){
-	//printf("all exhausted, running again\n");
+	printf("all exhausted, running again\n");
 	break;
       }
 
-      if(optimum.update(*t, btg.get_frontier()->total_cost)){
+      if(optimum.update(*btg.get_start()->next_element, *btg.get_frontier())){
 	std::cout << "took=" << optimum_timer.elapsed() / 1000 << "ms to find new optimum\n";
 	optimum_timer.reset();
 	printf("OUT BEGIN\n");
-	t->next_element->print();
+	btg.get_start()->next_element->print();
 	printf("OUT END\n");
       }else{
 	double transition_prob = exp(-(btg.frontier->total_cost - last_state_cost) / temperature);
 	if(uniform_real(GENERATOR) < transition_prob){
-	  //printf("move from=%d to=%d\n", last_state_cost, btg.frontier->total_cost);
+	  printf("move from=%d to=%d\n", last_state_cost, btg.frontier->total_cost);
 	  last_state_cost = btg.frontier->total_cost;
 	}else{
-	  btg.stepback_days(rollback_days);
-	  t = btg.grow_trek();
+	  // Switch back of no move.
+	  if(!btg.switch_flight(ms.schedule_days, rollback_days))
+	    throw "failed";
+	  DEBUG(printf("got cost=%d\n", btg.get_frontier()->total_cost));
 	}
       }
 
       if(j >= TEMP_JUMP){
 	temperature = temperature / float(2);
 	printf("new temp=%f\n", temperature);
-	if(temperature < 10){
+	if(temperature < ZERO_TEMP){
 	  printf("zero temperature: we're done\n");
 	  exit(EXIT_SUCCESS);
 	}

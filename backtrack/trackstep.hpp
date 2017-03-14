@@ -39,6 +39,10 @@ struct Track
   // Enlarges the track by including copy of the new_descr description
   // as the successor of the current track step.  Returns pointer to
   // the frontier of the enlarged track.
+  Track *enlarge(TrackStep&& new_descr){
+    next_element = new Track(new_descr, this);
+    return next_element;
+  }
   Track *enlarge(TrackStep& new_descr){
     next_element = new Track(new_descr, this);
     return next_element;
@@ -106,7 +110,7 @@ struct Track
   void reverse_system_print(std::ostream& output = std::cout, int day = 0){
     if(output == std::cout) printf("R ");
     output << hashtag_out(descr.dest) << " " << hashtag_out(descr.dept) << " " << day << " " << descr.cost << std::endl;
-    if(prev_element) if(prev_element->prev_element)
+    if(prev_element) if(prev_element->prev_element) if(prev_element->prev_element->prev_element)
 	prev_element->reverse_system_print(output, day + 1);
   }
 
