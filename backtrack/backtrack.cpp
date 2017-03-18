@@ -13,8 +13,7 @@
 */ 
 void BacktrackingWayGenerator::add_track_step(int dest, int cost, FlightsGenerator flights)
 {
-  TrackStep grown_track_step(frontier->descr.dest, dest, cost, flights);
-  frontier = frontier->enlarge(grown_track_step);
+  frontier = frontier->enlarge(TrackStep(frontier->descr.dest, dest, cost, flights));
   visited.visit(dest);
 }
 
@@ -27,26 +26,28 @@ void BacktrackingWayGenerator::add_track_step(int dest, int cost, FlightsGenerat
 */
 bool BacktrackingWayGenerator::grow_step_from_iter(FlightsGenerator flights)
 {
-  DEBUG(printf("growing from iter: current frontier: "));
-  DEBUG(frontier->print());
-  DEBUG(flights.print());
-  if(!flights.is_valid()){
-    return false;
-  }else{
-    int flight_dest = flights.current->dest;
-    int flight_cost = flights.current->cost;
-    flights.next();
-    if(!visited.visited(flight_dest)){
-      if(flight_dest == track_start->descr.dest && !visited.almost_all_visited()){
-	DEBUG(printf("would close the cycle prematurely dest=%d\n", flight_dest));
-	return grow_step_from_iter(flights);
-      }else{
-	add_track_step(flight_dest, flight_cost, flights);
-	return true;
-      }
+  while(true){
+    DEBUG(printf("growing from iter: current frontier: "));
+    DEBUG(frontier->print());
+    DEBUG(flights.print());
+    if(!flights.is_valid()){
+      return false;
     }else{
-      DEBUG(printf("already visited dest=%d\n", flight_dest));
-      return grow_step_from_iter(flights);
+      int flight_dest = flights.current->dest;
+      int flight_cost = flights.current->cost;
+      flights.next();
+      if(!visited.visited(flight_dest)){
+	if(flight_dest == track_start->descr.dest && !visited.almost_all_visited()){
+	  DEBUG(printf("would close the cycle prematurely dest=%d\n", flight_dest));
+	  continue;
+	}else{
+	  add_track_step(flight_dest, flight_cost, flights);
+	  return true;
+	}
+      }else{
+	DEBUG(printf("already visited dest=%d\n", flight_dest));
+	continue;
+      }
     }
   }
 }
@@ -70,8 +71,7 @@ bool BacktrackingWayGenerator::grow_step()
     DEBUG(printf("no more flights from city=%d on day=%d\n", frontier->descr.dest, current_day));
     return false;
   }
-  FlightsGenerator flights_iter(*available_flights);
-  if(!grow_step_from_iter(flights_iter)){
+  if(!grow_step_from_iter(FlightsGenerator(*available_flights))){
     return false;
   }
   ++current_day;
@@ -96,31 +96,19 @@ bool BacktrackingWayGenerator::regrow_step(Track *chopped)
   DEBUG(printf("regrowing current_day=%d\n", current_day));
   if(current_day <= 0)
     return false;
-  FlightsGenerator frontier_flights_iter = del_track_step();
-  if(!grow_step_from_iter(frontier_flights_iter)){
-    // There are no flights available from the current destination on this day.
-    // We are not allowed to cross the cutoff.
-    // if(current_day <= cutoff_day){
-    //   printf("cutoff\n");
-    //   // Better yet, should just reconnect one track step.
-    //   // chopped->print();
-    //   // if(chopped)
-    //   // 	frontier = frontier->connect(chopped);
-    //   //return true;
-    // }else{
-      --current_day;
-      //}
+  if(!grow_step_from_iter(del_track_step())){
+    --current_day;
     return regrow_step(chopped);
   }
   return true;
 }
 
 
-Track *BacktrackingWayGenerator::grow_trek(Track *chopped)
+Track *BacktrackingWayGenerator::grow_trek(Track *chopped, bool regrow)
 {
-  while(1){
-    // On the start of processing, first day, move forward.
-    if(current_day == 0){
+  while(true){
+    // If the route is not finished yet, finish it.
+    if(!regrow && current_day < schedule->schedule_days){
       grow_step();
       // Grow the route until we can.
       while(frontier->descr.dest != track_start->descr.dest && grow_step()) {}
@@ -189,8 +177,10 @@ Track *BacktrackingWayGenerator::stepback_days(int n)
   Track *stepped_back_track_start = step_back_track_step();
   --current_day;
   stepped_back_track_start->disconnect();
+  // Could be reconnected, maybe, for now, dispose of it.
+  stepped_back_track_start->forward_dispose();
   cutoff_day = current_day;
-  return stepped_back_track_start;
+  return nullptr;
 }
 
 
@@ -211,8 +201,6 @@ void BacktrackingWayGenerator::regrow_pregrown(Track *start, int days)
   if(days > current_day)
     days = current_day;
   Track *old = stepback_days(days);
-  //printf("old\n");
-  //old->print();
   current_day = current_day + days;
   old->forward_dispose();
   frontier = frontier->connect(start);
@@ -238,6 +226,7 @@ bool BacktrackingWayGenerator::exchange_trackstep(Track *track, unsigned int day
   return false;
 }
 
+
 /* Exchanges the flights at day dept_day departure and arrival
    airports.  At middle_dept_day, switch the link originating there.
    At the day before, change to have destination at the destination
@@ -249,9 +238,9 @@ bool BacktrackingWayGenerator::exchange_trackstep(Track *track, unsigned int day
    Returns true if it succeeded (all the changes are doable).
    Returns false if it failed.
 */
-bool BacktrackingWayGenerator::switch_flight(unsigned int all_days, unsigned int middle_switch_dept_day)
+bool BacktrackingWayGenerator::switch_flight(unsigned int middle_switch_dept_day)
 {
-  unsigned int cur_dept_day = all_days;
+  unsigned int cur_dept_day = schedule->schedule_days;
   Track *i;
   for(i = frontier; i->prev_element; i = i->prev_element){
     if(cur_dept_day <= middle_switch_dept_day) break;

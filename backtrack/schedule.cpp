@@ -1,7 +1,53 @@
 #include "schedule.hpp"
 
-#include <random>
+#include "csv.h"
+#include "cityhash.hpp"
 
-std::default_random_engine GENERATOR(1987);
-// std::uniform_int_distribution<int> distribution(0, 1);
-// auto TOSS_COIN = std::bind(distribution, generator);
+// Returns starting city.
+int TxtSchedule::load_flights_from_file(const char *input_filename){
+  char *line = nullptr;
+  size_t len = 0;
+  ssize_t read;
+  int nfields;
+
+  // Open files.
+  FILE* infile = fopen(input_filename, "r");
+  if(infile == nullptr){
+    printf("failed to open input file\n");
+    exit(EXIT_FAILURE);
+  }
+
+  // First line is special (starting city, discard here).
+  if((read = getline(&line, &len, infile)) == -1){
+    printf("failed to read first line containing starting city\n");
+    exit(EXIT_FAILURE);
+  }
+  char *start_chopped;
+  DEBUG(printf("starting city=%s\n", line));
+  chop(line, &start_chopped);
+  DEBUG(printf("starting city=%s\n", start_chopped));
+  int starting_city = hashtag_in(start_chopped);
+  DEBUG(printf("starting city=%d\n", starting_city));
+  free(start_chopped);
+  free(line);
+  fclose(infile);
+
+  io::CSVReader<4, io::trim_chars<>, io::no_quote_escape<' '>> in(input_filename);
+  in.next_line();
+  in.set_header("dept", "dest", "day", "cost");
+  char dept[4];
+  char *dept_ptr = (char*)dept;
+  char dest[4];
+  char *dest_ptr = (char*)dest;
+  unsigned int day;
+  unsigned int cost;
+  unsigned int i = 0;
+  while(in.read_row(dept_ptr, dest_ptr, day, cost)){
+    add_flight(hashtag_in(dept_ptr), hashtag_in(dest_ptr), day, cost);
+  }
+
+  // Reverse the backwards schedule for the days to match.
+  std::reverse(backwards_schedule.begin(), backwards_schedule.end());
+
+  return starting_city;
+}

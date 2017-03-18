@@ -28,9 +28,9 @@ struct BacktrackingWayGenerator
 public:
   BacktrackingWayGenerator(Schedule& new_schedule, Track& new_track_start, Track& new_frontier) :
     cutoff_day(0), current_day(0), schedule(&new_schedule), track_start(&new_track_start), frontier(&new_frontier),
-    visited(new_schedule.destination_count, new_track_start.descr.dest) {};
+    visited(new_schedule.schedule_days + 1, new_track_start.descr.dest) {};
   BacktrackingWayGenerator(Schedule& new_schedule, int starting_city) :
-    cutoff_day(0), current_day(0), schedule(&new_schedule), visited(new_schedule.destination_count, 0){
+    cutoff_day(0), current_day(0), schedule(&new_schedule), visited(new_schedule.schedule_days + 1, 0){
     Flights *available_flights = &schedule->flights_from_on(starting_city, 0);
     DEBUG(
 	  if(available_flights->size() > 0)
@@ -43,7 +43,7 @@ public:
     frontier = track_start;
   }
   BacktrackingWayGenerator(Schedule& new_schedule, unsigned int starting_city, FlightsGenerator& trek_flights) :
-    cutoff_day(0), current_day(new_schedule.schedule_days), schedule(&new_schedule), visited(new_schedule.destination_count, 0){
+    cutoff_day(0), current_day(new_schedule.schedule_days + 1), schedule(&new_schedule), visited(new_schedule.schedule_days + 1, 0){
     Flights *available_flights = &schedule->flights_from_on(starting_city, 0);
     DEBUG(
 	  if(available_flights->size() > 0)
@@ -70,7 +70,7 @@ public:
       frontier = frontier->enlarge(step);
     }
   }
-  Track *grow_trek(Track *chopped = nullptr);
+  Track *grow_trek(Track *chopped = nullptr, bool regrow = false);
   void rollback_days(int n);
   Track *get_frontier(){
     return frontier;
@@ -78,10 +78,25 @@ public:
   Track *get_start(){
     return track_start;
   }
+
+  // Exchanges current track for the one which has frontier new_track.
+  void exchange_track(Track *new_track){
+    Track *old_track = frontier;
+    frontier = new_track;
+    track_start = new_track->start();
+    visited = DestinationBitmap(schedule->schedule_days + 1, track_start->descr.dest);
+    // for(auto i = track_start.begin(); i != track_start.end(); ++i)
+    Track *i;
+    for(i = track_start->next_element; i->next_element; i = i->next_element)
+      visited.visit(i->descr.dest);
+    visited.visit(i->descr.dest);
+    old_track->dispose();
+    current_day = schedule->schedule_days + 1;
+  }
   Track *stepback_days(int n);
   Track *step_back_track_step();
   void regrow_pregrown(Track *trek_start, int days);
-  bool switch_flight(unsigned int all_days, unsigned int middle_switch_dept_day);
+  bool switch_flight(unsigned int middle_switch_dept_day);
 };
 
 #endif
