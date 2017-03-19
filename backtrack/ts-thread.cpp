@@ -59,7 +59,7 @@ unsigned int starting_city;
 
 // The parameters here are specified in the same order as in which
 // they are read from the parameters list.
-const int EACH_N = 100000;
+const int EACH_N = 10000;
 
 const char* INPUT_FILE;
 
@@ -75,6 +75,7 @@ unsigned int BACKWARDS_PARAM_SUCCESSES;
 double BACKWARDS_ZERO_TEMP;
 double BACKWARDS_PARAM_SUCCESS_PR;
 
+double EXCHANGE_PROBABILITY;
 
 void execute_ts_backward_sorted_sa(unsigned int id)
 {
@@ -88,7 +89,7 @@ void execute_ts_backward_sorted_sa(unsigned int id)
   bool we_re_done = false;
   Timer timer;
   Timer optimum_timer;
-  Track *t, *last;
+  Track *t, *last, *current;
   int i, j;
   int times[EACH_N];
   int rollback_days;
@@ -100,6 +101,7 @@ void execute_ts_backward_sorted_sa(unsigned int id)
   while(1){
     BacktrackingWayGenerator btg(backward_schedule, starting_city);
     t = btg.grow_trek();
+    current = btg.get_start()->duplicate();
     do{
       // Do the threading work.
       if(times_up || we_re_done){
@@ -130,11 +132,11 @@ void execute_ts_backward_sorted_sa(unsigned int id)
       }else{
 	double transition_prob = exp(-(btg.frontier->total_cost - last_state_cost) / temperature);
 	if(uniform_real(GENERATOR) < transition_prob){
-	  //printf("move from=%d to=%d\n", last_state_cost, btg.frontier->total_cost);
 	  last_state_cost = btg.frontier->total_cost;
+	  current->forward_dispose();
+	  current = btg.get_start()->duplicate();
 	}else{
-	  btg.stepback_days(rollback_days);
-	  t = btg.grow_trek();
+	  btg.exchange_track(current->start()->duplicate());
 	}
       }
 
@@ -148,21 +150,12 @@ void execute_ts_backward_sorted_sa(unsigned int id)
 	j = 0;
       }
       ++j;
-
-
-      // if(i == 0)
-      // 	std::cout << "took=" << timer.elapsed() << "us to generate the first track\n";
-      // if(i >= EACH_N){
-      // 	std::cout << "took=" << mean(times, EACH_N) << "us average to generate one track\n";
-      // 	i = 0;
-      // }
-      // times[i++] = timer.elapsed();
     } while(t);
   }
 }
 
 
-void execute_ts_forward_sorted_sa(unsigned int id)
+void execute_ts_forward_sorted_sa_worker(unsigned int id, TxtSchedule& schedule)
 {
   std::default_random_engine GENERATOR(1987 + (1074 * id) % 39);
   const int TEMP_JUMP = FORWARD_TEMP_JUMP;
@@ -175,6 +168,7 @@ void execute_ts_forward_sorted_sa(unsigned int id)
   Timer timer;
   Timer optimum_timer;
   Track *t, *last;
+  Track *current;
   int i, j;
   int times[EACH_N];
   int rollback_days;
@@ -184,8 +178,9 @@ void execute_ts_forward_sorted_sa(unsigned int id)
   std::cout << "worker id=" << id << " on thread=" << std::this_thread::get_id() << std::endl;
 
   while(1){
-    BacktrackingWayGenerator btg(forward_schedule, starting_city);
+   BacktrackingWayGenerator btg(schedule, starting_city);
     t = btg.grow_trek();
+    current = btg.get_start()->duplicate();
     do{
       // Do the threading work.
       if(times_up || we_re_done){
@@ -218,9 +213,10 @@ void execute_ts_forward_sorted_sa(unsigned int id)
 	double transition_prob = exp(-(btg.frontier->total_cost - last_state_cost) / temperature);
 	if(uniform_real(GENERATOR) < transition_prob){
 	  last_state_cost = btg.frontier->total_cost;
+	  current->forward_dispose();
+	  current = btg.get_start()->duplicate();
 	}else{
-	  btg.stepback_days(rollback_days);
-	  t = btg.grow_trek();
+	  btg.exchange_track(current->start()->duplicate());
 	}
       }
 
@@ -234,36 +230,198 @@ void execute_ts_forward_sorted_sa(unsigned int id)
 	j = 0;
       }
       ++j;
-
-
-      // if(i == 0)
-      // 	std::cout << "took=" << timer.elapsed() << "us to generate the first track\n";
-      // if(i >= EACH_N){
-      // 	std::cout << "took=" << mean(times, EACH_N) << "us average to generate one track\n";
-      // 	i = 0;
-      // }
-      // times[i++] = timer.elapsed();
     } while(t);
   }
 }
 
-void execute_ts_forward_exchanging_sa(unsigned int id)
+
+void execute_ts_forward_exchanging_sa_worker(unsigned int id, Schedule& schedule)
 {
   std::default_random_engine GENERATOR(1987 + (1074 * id) % 39);
-  const int TEMP_JUMP = 1000000;
-  const int INITIAL_TEMPERATURE = 10000000;
-  const int PARAM_SUCCESSES = 3;
-  const double PARAM_SUCCESS_PR = .2;
-  const unsigned int ZERO_TEMP = 10;
-  const double EXCHANGE_PROBABILITY = .05;
-
-  double temperature = INITIAL_TEMPERATURE;
-  int last_state_cost = 100000000;
+  unsigned int TEMP_JUMP = FORWARD_TEMP_JUMP;
+  const int PARAM_SUCCESSES = FORWARD_PARAM_SUCCESSES;
+  const double PARAM_SUCCESS_PR = FORWARD_PARAM_SUCCESS_PR;
+  double temperature = FORWARD_INITIAL_TEMPERATURE;
+  unsigned int last_state_cost = MAX_INT;
+  const double FORWARD_EX_ZERO_TEMP = FORWARD_ZERO_TEMP;
 
   bool we_re_done = false;
   Timer timer;
   Timer optimum_timer;
-  Track *t, *last;
+  Track *t, *last, *current;
+  unsigned int i;
+  unsigned int j = TEMP_JUMP;
+  int times[EACH_N];
+  unsigned int rollback_days;
+  double temp_dec_factor = 4;
+  unsigned int param_successes = int(PARAM_SUCCESSES * forward_schedule.schedule_days / 70);
+  std::negative_binomial_distribution<int> days_distribution(param_successes, PARAM_SUCCESS_PR);
+  std::uniform_int_distribution<int> uniform_days(2, forward_schedule.schedule_days - 1);
+  std::uniform_real_distribution<double> uniform_real(0, 1);
+
+  std::cout << "worker id=" << id << " on thread=" << std::this_thread::get_id() << std::endl;
+
+  bool regrown_flights;
+  bool switched_flights;
+  while(true){
+    BacktrackingWayGenerator btg(schedule, starting_city);
+    t = btg.grow_trek();
+    unsigned int starting_cost = btg.frontier->total_cost / 100;
+    current = btg.get_start()->duplicate();
+    do{
+      // Do the threading work.
+      if(times_up || we_re_done){
+	{
+	  std::cout << "times up, dying" << std::endl;
+	  std::lock_guard<std::mutex> lock(yard_gate);
+	  ++corpses_count;
+	}
+	graveyard.notify_all();
+	return;
+      }
+
+      regrown_flights = false;
+      switched_flights = false;
+
+      if(t){
+	if(uniform_real(GENERATOR) < 1 - EXCHANGE_PROBABILITY){
+	  if(uniform_real(GENERATOR) < double(forward_schedule.schedule_days) / 100 * 0.45){
+	    rollback_days = days_distribution(GENERATOR);
+	  }else{
+	    rollback_days = uniform_days(GENERATOR);
+	  }
+	  DEBUG(printf("stepping back days=%d\n", rollback_days));
+	  btg.stepback_days(rollback_days);
+	  t = btg.grow_trek(nullptr, true);
+	  regrown_flights = true;
+	}else{
+	  for(unsigned int i = 0; i < 10; ++i){
+	    rollback_days = uniform_days(GENERATOR);
+	    if(btg.switch_flight(rollback_days)){
+	      DEBUG(printf("swapping flights days=%d back\n", rollback_days));
+	      switched_flights = true;
+	      break;
+	    }
+	  }
+	  if(!switched_flights) continue;
+	  btg.get_start()->fix_total_cost();
+	  t = btg.get_start();
+	}
+      }
+      timer.reset();
+      // Completed a whole run, start over.
+      if(!t){
+	DEBUG(printf("all exhausted, running again\n"));
+	break;
+      }
+
+      if(optima[id].update(*t, btg.get_frontier()->total_cost)){
+	if(forward_schedule.schedule_days <= 100){
+	  if(j <= 2 * TEMP_JUMP)
+	    j += TEMP_JUMP / 4;
+	}else{
+	  j = TEMP_JUMP;
+	}
+	// Advance into the new optimum.
+	std::cout << "took=" << optimum_timer.elapsed() / 1000 << "ms to find new FE optimum cost=" << btg.get_frontier()->total_cost << std::endl;
+	optimum_timer.reset();
+	DEBUG(t->frontier()->validate(*btg.get_start()->next_element, INPUT_FILE));
+	last_state_cost = btg.frontier->total_cost;
+	current->forward_dispose();
+	current = btg.get_start()->duplicate();
+      }else{
+	if(btg.frontier->total_cost < last_state_cost){
+	  last_state_cost = btg.frontier->total_cost;
+	  current->forward_dispose();
+	  current = btg.get_start()->duplicate();
+	}else{
+	  // Explore non-optimal states.
+	  double transition_prob = exp(-(btg.frontier->total_cost - double(last_state_cost)) / double(starting_cost) / temperature);
+	  if(uniform_real(GENERATOR) < transition_prob){
+	    if(i++ >= EACH_N){
+	      i = 0;
+	      printf("move from=%d to=%d at p=%f\n", last_state_cost, btg.frontier->total_cost, transition_prob);
+	    }
+	    last_state_cost = btg.frontier->total_cost;
+	    current->forward_dispose();
+	    current = btg.get_start()->duplicate();
+	  }else{
+	    DEBUG(printf("not stepping into from=%d to=%d\n", last_state_cost, btg.frontier->total_cost));
+	    if(regrown_flights){
+	      btg.exchange_track(current->start()->duplicate());
+	    }
+	    if(switched_flights){
+	      if(!btg.switch_flight(rollback_days)){
+		throw new FlightExchangeError();
+		printf("failed to switch back\n");
+	      }
+	      btg.get_start()->fix_total_cost();
+	    }
+	  }
+	}
+      }
+
+      //if(j % (TEMP_JUMP / 2) == 0){
+      if(j <= 0){
+	btg.exchange_track(optima[id].minimum->start()->duplicate());
+	btg.get_start()->fix_total_cost();
+	last_state_cost = btg.frontier->total_cost;
+	current->forward_dispose();
+	current = btg.get_start()->duplicate();
+	printf("resetting cost=%d\n", last_state_cost);
+      }
+
+      if(j <= 0){
+	if(temperature > 0.5)
+	  temperature /= temp_dec_factor;
+	// 20 - 0.5
+	// 30 - 0.2
+	if(temperature < 0.5 && forward_schedule.schedule_days < 70){
+	  btg = BacktrackingWayGenerator(forward_schedule, starting_city);
+	  t = btg.grow_trek();
+	  starting_cost = btg.frontier->total_cost / 100;
+	  current = btg.get_start()->duplicate();
+	  j = TEMP_JUMP;
+	  temperature = FORWARD_INITIAL_TEMPERATURE;
+	}
+	temp_dec_factor = 1.5;
+	printf("new temp=%f cost=%d\n", temperature, last_state_cost);
+	if(temperature < FORWARD_EX_ZERO_TEMP){
+	  printf("zero temperature: we're done\n");
+	  we_re_done = true;
+	}
+	j = TEMP_JUMP;
+      }
+      --j;
+    } while(t);
+  }
+}
+
+
+void execute_ts_be_sa(unsigned int id){
+  execute_ts_forward_exchanging_sa_worker(id, backward_schedule);
+}
+
+
+void execute_ts_fe_sa(unsigned int id){
+  execute_ts_forward_exchanging_sa_worker(id, forward_schedule);
+}
+
+
+void execute_ts_backwards_exchanging_sa(unsigned int id)
+{
+  std::default_random_engine GENERATOR(1987 + (1074 * id) % 39);
+  const int TEMP_JUMP = BACKWARDS_TEMP_JUMP;
+  const int PARAM_SUCCESSES = BACKWARDS_PARAM_SUCCESSES;
+  const double PARAM_SUCCESS_PR = BACKWARDS_PARAM_SUCCESS_PR;
+  double temperature = BACKWARDS_INITIAL_TEMPERATURE;
+  int last_state_cost = MAX_INT;
+  const double BACKWARDS_EX_ZERO_TEMP = BACKWARDS_ZERO_TEMP;
+
+  bool we_re_done = false;
+  Timer timer;
+  Timer optimum_timer;
+  Track *t, *last, *current;
   unsigned int i, j;
   int times[EACH_N];
   unsigned int rollback_days;
@@ -276,8 +434,9 @@ void execute_ts_forward_exchanging_sa(unsigned int id)
   bool regrown_flights;
   bool switched_flights;
   while(true){
-    BacktrackingWayGenerator btg(forward_schedule, starting_city);
+    BacktrackingWayGenerator btg(backward_schedule, starting_city);
     t = btg.grow_trek();
+    current = btg.get_start()->duplicate();
     do{
       // Do the threading work.
       if(times_up || we_re_done){
@@ -324,7 +483,7 @@ void execute_ts_forward_exchanging_sa(unsigned int id)
 
       if(optima[id].update(*t, btg.get_frontier()->total_cost)){
 	// Advance into the new optimum.
-	std::cout << "took=" << optimum_timer.elapsed() / 1000 << "ms to find new FE optimum cost=" << btg.get_frontier()->total_cost << std::endl;
+	std::cout << "took=" << optimum_timer.elapsed() / 1000 << "ms to find new BE optimum cost=" << btg.get_frontier()->total_cost << std::endl;
 	optimum_timer.reset();
 	DEBUG(t->frontier()->validate(*btg.get_start()->next_element, INPUT_FILE));
       }else{
@@ -333,11 +492,12 @@ void execute_ts_forward_exchanging_sa(unsigned int id)
 	if(uniform_real(GENERATOR) < transition_prob){
 	  DEBUG(printf("move from=%d to=%d\n", last_state_cost, btg.frontier->total_cost));
 	  last_state_cost = btg.frontier->total_cost;
+	  current->forward_dispose();
+	  current = btg.get_start()->duplicate();
 	}else{
 	  DEBUG(printf("not stepping into from=%d to=%d\n", last_state_cost, btg.frontier->total_cost));
 	  if(regrown_flights){
-	    btg.stepback_days(rollback_days);
-	    t = btg.grow_trek();
+	    btg.exchange_track(current->start()->duplicate());
 	  }
 	  if(switched_flights){
 	    if(!btg.switch_flight(rollback_days)){
@@ -351,26 +511,18 @@ void execute_ts_forward_exchanging_sa(unsigned int id)
       if(j >= TEMP_JUMP){
 	temperature = temperature / float(2);
 	printf("new temp=%f\n", temperature);
-	btg.exchange_track(optima[id].minimum->start()->duplicate());
-	if(temperature < ZERO_TEMP){
+	//	btg.exchange_track(optima[id].minimum->start()->duplicate());
+	if(temperature < BACKWARDS_EX_ZERO_TEMP){
 	  printf("zero temperature: we're done\n");
 	  we_re_done = true;
 	}
 	j = 0;
       }
       ++j;
-
-
-      // if(i == 0)
-      // 	std::cout << "took=" << timer.elapsed() << "us to generate the first track\n";
-      // if(i >= EACH_N){
-      // 	std::cout << "took=" << mean(times, EACH_N) << "us average to generate one track\n";
-      // 	i = 0;
-      // }
-      // times[i++] = timer.elapsed();
     } while(t);
   }
 }
+
 
 
 // Sleeps a specified time, then notifies worker thread to stop
@@ -446,6 +598,8 @@ void read_in_params(int argc, char **argv)
   BACKWARDS_ZERO_TEMP = atoi(getenv("BACKWARDS_ZERO_TEMP"));
   BACKWARDS_PARAM_SUCCESS_PR = atof(getenv("BACKWARDS_PARAM_SUCCESS_PR"));
 
+  EXCHANGE_PROBABILITY = atof(getenv("EXCHANGE_PROBABILITY"));
+
   INPUT_FILE = argv[1];
 
   char *debugging = getenv("DEBUG");
@@ -467,19 +621,19 @@ int main(int argc, char **argv)
   std::vector<std::thread*> workers;
 
   // Start the killer thread.
-  workers.push_back(new std::thread(grim_reap, 3));
+  workers.push_back(new std::thread(grim_reap, 2));
 
   // Start forward SA solver.
-  starting_city = forward_schedule.load_flights_from_file(INPUT_FILE);
+  starting_city = forward_schedule.load_flights_from_file(stdin);
   forward_schedule.sort_flights();
   std::cout << "took=" << timer.elapsed() / 1e6 << "s to load data" << std::endl;
   timer.reset();
 
-  workers.push_back(new std::thread(execute_ts_forward_sorted_sa, 1));
-  reverse[1] = false;
+  //workers.push_back(new std::thread(execute_ts_forward_sorted_sa, 1));
+  //reverse[1] = false;
 
-  workers.push_back(new std::thread(execute_ts_forward_exchanging_sa, 2));
-  reverse[2] = false;
+  //workers.push_back(new std::thread(execute_ts_forward_exchanging_sa, 2));
+  //reverse[2] = false;
 
   // Start backwards SA solver.
   forward_schedule.sort_backwards_flights();
@@ -487,14 +641,13 @@ int main(int argc, char **argv)
   std::cout << "took=" << timer.elapsed() / 1e6 << "s to sort backwards schedule" << std::endl;
   timer.reset();
 
-  workers.push_back(new std::thread(execute_ts_backward_sorted_sa, 0));
+  execute_ts_be_sa(0);
+
+  // workers.push_back(new std::thread(execute_ts_backward_sorted_sa, 0));
   reverse[0] = true;
 
-  forward_schedule.sort_linear_flights();
-  greedy_forward_schedule = forward_schedule;
-  std::cout << "took=" << timer.elapsed() / 1e6 << "s to sort linear schedule" << std::endl;
-  timer.reset();
-
+  //workers.push_back(new std::thread(execute_ts_backwards_exchanging_sa, 3));
+  //reverse[3] = true;
 
   for(auto i = std::begin(workers); i != std::end(workers); ++i)
     (*i)->join();

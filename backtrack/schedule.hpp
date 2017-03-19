@@ -121,7 +121,7 @@ public:
 	_shuffle_single_flight(*dept);
     }
   }
-  int load_flights_from_file(const char *input_filename);
+  int load_flights_from_file(FILE *infile);
   virtual Flights& flights_from_on(int dept, int day){
     if(day > schedule_days || dept > max_destination){
       Flights *empty = new Flights();

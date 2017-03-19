@@ -1,11 +1,8 @@
 CXXFLAGS = --std=gnu++11 -g -Wformat=0 -DENABLE_DEBUGGING -foptimize-sibling-calls
 PROD_CXXFLAGS = --std=gnu++11 -Wformat=0 -foptimize-sibling-calls
-all: ts-forward-sa ts-backward-sa ts-nearest-first ts-forward-rsa
 production: ts-thread.cpp flight.o backtrack.cpp spliceit.o cityhash.o schedule.o *.hpp
-	g++ -O0 $(PROD_CXXFLAGS) -c backtrack.cpp -o backtrack.o
-	g++ -O3 $(PROD_CXXFLAGS) -o ts-thread ts-thread.cpp flight.o backtrack.o cityhash.o spliceit.o schedule.o -pthread 
-#	g++ -O0 $(PROD_CXXFLAGS) -o production-forward-nearest-sa production-forward-nearest-sa.cpp flight.o backtrack.o spliceit.o cityhash.o schedule.o -pthread 
-#	g++ -O0 $(PROD_CXXFLAGS) -o production-backwards-nearest-sa production-backwards-nearest-sa.cpp flight.o backtrack.o spliceit.o cityhash.o schedule.o -pthread 
+	g++ -O0 $(CXXFLAGS) -c backtrack.cpp -o backtrack.o
+	g++ -O3 $(CXXFLAGS) -o ts-thread ts-thread.cpp flight.o backtrack.o cityhash.o spliceit.o schedule.o -pthread 
 test-mock: *.hpp test.cpp backtrack.o spliceit.o
 ts-forward-greedy-sa: ts-forward-greedy-sa.cpp flight.o backtrack.o spliceit.o cityhash.o schedule.o greedy.o *.hpp
 	g++ $(CXXFLAGS) -o $@ ts-forward-greedy-sa.cpp flight.o backtrack.o spliceit.o cityhash.o schedule.o greedy.o
@@ -24,7 +21,7 @@ ts-plain-backtrack: flight.o backtrack.o spliceit.o cityhash.o schedule.o *.hpp
 test-txt: backtrack.o spliceit.o cityhash.o *.hpp
 test: test.cpp
 schedule.o: schedule.cpp schedule.hpp cityhash.hpp
-	g++ $(CXXFLAGS) -O3 -c -o $@ $<
+	g++ -DCSV_IO_NO_THREAD $(CXXFLAGS) -O3 -c -o $@ $<
 cityhash.o: cityhash.cpp cityhash.hpp
 	g++ $(CXXFLAGS) -O3 -c -o $@ $<
 spliceit.o: spliceit.cpp spliceit.hpp

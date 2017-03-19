@@ -108,7 +108,7 @@ struct Track
 
   // Same as system_print, but reverse destination and start.
   void reverse_system_print(std::ostream& output = std::cout, int day = 0){
-    if(output == std::cout) printf("R ");
+//    if(output == std::cout) printf("R ");
     output << hashtag_out(descr.dest) << " " << hashtag_out(descr.dept) << " " << day << " " << descr.cost << std::endl;
     if(prev_element) if(prev_element->prev_element) if(prev_element->prev_element->prev_element)
 	prev_element->reverse_system_print(output, day + 1);

@@ -4,18 +4,11 @@
 #include "cityhash.hpp"
 
 // Returns starting city.
-int TxtSchedule::load_flights_from_file(const char *input_filename){
+int TxtSchedule::load_flights_from_file(FILE* infile){
   char *line = nullptr;
   size_t len = 0;
   ssize_t read;
   int nfields;
-
-  // Open files.
-  FILE* infile = fopen(input_filename, "r");
-  if(infile == nullptr){
-    printf("failed to open input file\n");
-    exit(EXIT_FAILURE);
-  }
 
   // First line is special (starting city, discard here).
   if((read = getline(&line, &len, infile)) == -1){
@@ -30,10 +23,8 @@ int TxtSchedule::load_flights_from_file(const char *input_filename){
   DEBUG(printf("starting city=%d\n", starting_city));
   free(start_chopped);
   free(line);
-  fclose(infile);
 
-  io::CSVReader<4, io::trim_chars<>, io::no_quote_escape<' '>> in(input_filename);
-  in.next_line();
+  io::CSVReader<4, io::trim_chars<>, io::no_quote_escape<' '>> in("dummy", infile);
   in.set_header("dept", "dest", "day", "cost");
   char dept[4];
   char *dept_ptr = (char*)dept;
